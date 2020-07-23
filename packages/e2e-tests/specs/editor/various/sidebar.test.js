@@ -2,8 +2,10 @@
  * WordPress dependencies
  */
 import {
+	activatePlugin,
 	clearLocalStorage,
 	createNewPost,
+	deactivatePlugin,
 	findSidebarPanelWithTitle,
 	enableFocusLossObservation,
 	disableFocusLossObservation,
@@ -120,11 +122,21 @@ describe( 'Sidebar', () => {
 	} );
 
 	it( 'should be possible to programmatically remove Document Settings panels', async () => {
+		await activatePlugin( 'gutenberg-test-plugin-post-formats-support' );
+
 		await createNewPost();
 		await enableFocusLossObservation();
 
 		await openDocumentSettingsSidebar();
 
+		expect( await findSidebarPanelWithTitle( 'General' ) ).toBeDefined();
+		expect(
+			await findSidebarPanelWithTitle( 'Visibility:' )
+		).toBeDefined();
+		expect( await findSidebarPanelWithTitle( 'Publish:' ) ).toBeDefined();
+		expect(
+			await findSidebarPanelWithTitle( 'Post Format' )
+		).toBeDefined();
 		expect( await findSidebarPanelWithTitle( 'Categories' ) ).toBeDefined();
 		expect( await findSidebarPanelWithTitle( 'Tags' ) ).toBeDefined();
 		expect(
@@ -132,21 +144,29 @@ describe( 'Sidebar', () => {
 		).toBeDefined();
 		expect( await findSidebarPanelWithTitle( 'Excerpt' ) ).toBeDefined();
 		expect( await findSidebarPanelWithTitle( 'Discussion' ) ).toBeDefined();
-		expect(
-			await findSidebarPanelWithTitle( 'Status & visibility' )
-		).toBeDefined();
 
 		await page.evaluate( () => {
 			const { removeEditorPanel } = wp.data.dispatch( 'core/edit-post' );
 
+			removeEditorPanel( 'post-status' );
+			removeEditorPanel( 'visibility' );
+			removeEditorPanel( 'schedule' );
+			removeEditorPanel( 'post-format' );
 			removeEditorPanel( 'taxonomy-panel-category' );
 			removeEditorPanel( 'taxonomy-panel-post_tag' );
 			removeEditorPanel( 'featured-image' );
 			removeEditorPanel( 'post-excerpt' );
 			removeEditorPanel( 'discussion-panel' );
-			removeEditorPanel( 'post-status' );
 		} );
 
+		expect( await findSidebarPanelWithTitle( 'General' ) ).toBeUndefined();
+		expect(
+			await findSidebarPanelWithTitle( 'Visibility:' )
+		).toBeUndefined();
+		expect( await findSidebarPanelWithTitle( 'Publish:' ) ).toBeUndefined();
+		expect(
+			await findSidebarPanelWithTitle( 'Post Format' )
+		).toBeUndefined();
 		expect(
 			await findSidebarPanelWithTitle( 'Categories' )
 		).toBeUndefined();
@@ -158,8 +178,7 @@ describe( 'Sidebar', () => {
 		expect(
 			await findSidebarPanelWithTitle( 'Discussion' )
 		).toBeUndefined();
-		expect(
-			await findSidebarPanelWithTitle( 'Status & visibility' )
-		).toBeUndefined();
+
+		await deactivatePlugin( 'gutenberg-test-plugin-post-formats-support' );
 	} );
 } );

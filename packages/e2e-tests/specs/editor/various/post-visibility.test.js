@@ -4,8 +4,14 @@
 import {
 	setBrowserViewport,
 	createNewPost,
+	findSidebarPanelWithTitle,
 	openDocumentSettingsSidebar,
 } from '@wordpress/e2e-test-utils';
+
+async function toggleSidebarPanel( label ) {
+	const panelToggle = await findSidebarPanelWithTitle( label );
+	panelToggle.click();
+}
 
 describe( 'Post visibility', () => {
 	afterEach( async () => {
@@ -19,7 +25,7 @@ describe( 'Post visibility', () => {
 
 			await openDocumentSettingsSidebar();
 
-			await page.click( '.edit-post-post-visibility__toggle' );
+			await toggleSidebarPanel( 'Visibility:' );
 
 			const [ privateLabel ] = await page.$x(
 				'//label[text()="Private"]'
@@ -45,7 +51,7 @@ describe( 'Post visibility', () => {
 		await openDocumentSettingsSidebar();
 
 		// Set a publish date for the next month.
-		await page.click( '.edit-post-post-schedule__toggle' );
+		await toggleSidebarPanel( 'Publish' );
 		await page.click(
 			'div[aria-label="Move forward to switch to the next month."]'
 		);
@@ -55,7 +61,7 @@ describe( 'Post visibility', () => {
 			)
 		 )[ 0 ].click();
 
-		await page.click( '.edit-post-post-visibility__toggle' );
+		await toggleSidebarPanel( 'Visibility:' );
 
 		const [ privateLabel ] = await page.$x( '//label[text()="Private"]' );
 		await privateLabel.click();

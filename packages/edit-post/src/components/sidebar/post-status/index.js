@@ -9,13 +9,10 @@ import { compose, ifCondition } from '@wordpress/compose';
 /**
  * Internal dependencies
  */
-import PostVisibility from '../post-visibility';
 import PostTrash from '../post-trash';
-import PostSchedule from '../post-schedule';
 import PostSticky from '../post-sticky';
 import PostAuthor from '../post-author';
 import PostSlug from '../post-slug';
-import PostFormat from '../post-format';
 import PostPendingStatus from '../post-pending-status';
 import PluginPostStatusInfo from '../plugin-post-status-info';
 
@@ -28,16 +25,13 @@ function PostStatus( { isOpened, onTogglePanel } ) {
 	return (
 		<PanelBody
 			className="edit-post-post-status"
-			title={ __( 'Status & visibility' ) }
+			title={ __( 'General' ) }
 			opened={ isOpened }
 			onToggle={ onTogglePanel }
 		>
 			<PluginPostStatusInfo.Slot>
 				{ ( fills ) => (
 					<>
-						<PostVisibility />
-						<PostSchedule />
-						<PostFormat />
 						<PostSticky />
 						<PostPendingStatus />
 						<PostSlug />

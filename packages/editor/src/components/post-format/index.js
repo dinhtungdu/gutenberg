@@ -29,7 +29,7 @@ export const POST_FORMAT_TITLES = {
 	video: __( 'Video' ),
 };
 
-export default function PostFormat() {
+export default function PostFormat( { showDescription = false } ) {
 	const instanceId = useInstanceId( PostFormat );
 	const postFormatSelectorId = `post-format-selector-${ instanceId }`;
 
@@ -86,8 +86,23 @@ export default function PostFormat() {
 							label: POST_FORMAT_TITLES[ format ],
 							value: format,
 						} ) ) }
+						aria-describedby={
+							showDescription
+								? `editor-post-format__description-${ postFormatSelectorId }`
+								: undefined
+						}
 					/>
 				</div>
+
+				{ showDescription && (
+					<p
+						id={ `editor-post-format__description-${ postFormatSelectorId }` }
+					>
+						{ __(
+							'Your theme uses post formats to highlight different kinds of content, like images or videos. Apply a post format to see this special styling.'
+						) }
+					</p>
+				) }
 
 				{ suggestedFormat && (
 					<div className="editor-post-format__suggestion">

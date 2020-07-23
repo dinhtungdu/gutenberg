@@ -1,7 +1,10 @@
 /**
  * WordPress dependencies
  */
-import { createNewPost } from '@wordpress/e2e-test-utils';
+import {
+	createNewPost,
+	findSidebarPanelWithTitle,
+} from '@wordpress/e2e-test-utils';
 
 describe( 'Scheduling', () => {
 	beforeEach( createNewPost );
@@ -19,7 +22,8 @@ describe( 'Scheduling', () => {
 	};
 
 	it( 'Should keep date time UI focused when the previous and next month buttons are clicked', async () => {
-		await page.click( '.edit-post-post-schedule__toggle' );
+		const panelToggle = await findSidebarPanelWithTitle( 'Publish:' );
+		await panelToggle.click();
 		await page.click(
 			'div[aria-label="Move backward to switch to the previous month."]'
 		);
