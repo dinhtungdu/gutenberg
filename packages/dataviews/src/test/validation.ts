@@ -1,7 +1,7 @@
 /**
  * Internal dependencies
  */
-import isItemValid from '../utils/is-item-valid';
+import isItemValid, { isItemValidAsync } from '../utils/is-item-valid';
 import type { Field } from '../types';
 
 describe( 'validation', () => {
@@ -351,5 +351,69 @@ describe( 'validation', () => {
 		const form = { fields: [ 'tags' ] };
 		const result = isItemValid( item, fields, form );
 		expect( result ).toBe( false );
+	} );
+
+	describe( 'async elements', () => {
+		it( 'validates promise-based elements', async () => {
+			const item = { id: 1, status: 'published' };
+			const fields: Field< {} >[] = [
+				{
+					id: 'status',
+					type: 'text',
+					elements: () =>
+						Promise.resolve( [
+							{ value: 'draft', label: 'Draft' },
+							{ value: 'published', label: 'Published' },
+						] ),
+					isValid: {
+						elements: true,
+					},
+				},
+			];
+			const form = { fields: [ 'status' ] };
+			const result = await isItemValidAsync( item, fields, form );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'validates function returning promise elements', async () => {
+			const item = { id: 1, status: 'draft' };
+			const fields: Field< {} >[] = [
+				{
+					id: 'status',
+					type: 'text',
+					elements: () =>
+						Promise.resolve( [
+							{ value: 'draft', label: 'Draft' },
+							{ value: 'published', label: 'Published' },
+						] ),
+					isValid: {
+						elements: true,
+					},
+				},
+			];
+			const form = { fields: [ 'status' ] };
+			const result = await isItemValidAsync( item, fields, form );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'fails closed when element resolution rejects', async () => {
+			const item = { id: 1, status: 'draft' };
+			const fields: Field< {} >[] = [
+				{
+					id: 'status',
+					type: 'text',
+					elements: () =>
+						Promise.reject(
+							new Error( 'Failed to load elements' )
+						),
+					isValid: {
+						elements: true,
+					},
+				},
+			];
+			const form = { fields: [ 'status' ] };
+			const result = await isItemValidAsync( item, fields, form );
+			expect( result ).toBe( false );
+		} );
 	} );
 } );
