@@ -728,6 +728,14 @@ Parameters:
 
 Returns a boolean indicating if the item is valid (true) or not (false).
 
+### `isItemValidAsync`
+
+`isItemValidAsync` provides the same validation as `isItemValid`, but awaits any asynchronous `elements` sources that resolve to selectable options. Use this helper when your field definitions provide `Promise` or function-based `elements`. It returns a `Promise<boolean>` that resolves once all relevant element sources have been processed.
+
+### `useAsyncValidation`
+
+`useAsyncValidation( item, fields, form )` is a React hook that performs the same asynchronous validation as `isItemValidAsync` and returns an object with `{ isValid, isResolving, validate }`. The `validate` function can be called to trigger validation manually, while `isResolving` indicates when validation is in progress.
+
 ## Actions API
 
 ### `id`

@@ -9,6 +9,7 @@ import deepMerge from 'deepmerge';
 import { useCallback, useMemo, useState } from '@wordpress/element';
 import {
 	Button,
+	__experimentalText as Text,
 	__experimentalVStack as VStack,
 	privateApis,
 } from '@wordpress/components';
@@ -18,6 +19,7 @@ import {
  */
 import DataForm from '../components/dataform';
 import isItemValid from '../utils/is-item-valid';
+import { useAsyncValidation } from '../hooks/use-async-validation';
 
 import type {
 	Field,
@@ -1001,6 +1003,130 @@ const ValidationComponent = ( {
 	);
 };
 
+const AsyncValidationComponent = ( {
+	type = 'regular',
+}: {
+	type: 'regular' | 'panel';
+} ) => {
+	type AsyncItem = {
+		title: string;
+		category?: string;
+		topics: string[];
+	};
+
+	const [ item, setItem ] = useState< AsyncItem >( {
+		title: 'Getting started with site editing',
+		category: 'guides',
+		topics: [ 'design' ],
+	} );
+
+	const asyncFields = useMemo< Field< AsyncItem >[] >( () => {
+		const loadCategories = async () => {
+			await new Promise( ( resolve ) => setTimeout( resolve, 400 ) );
+			return [
+				{ value: 'guides', label: 'Guides' },
+				{ value: 'news', label: 'News' },
+				{ value: 'showcase', label: 'Showcase' },
+			];
+		};
+
+		const loadTopics = async () => {
+			await new Promise( ( resolve ) => setTimeout( resolve, 800 ) );
+			return [
+				{ value: 'design', label: 'Design' },
+				{ value: 'performance', label: 'Performance' },
+				{ value: 'accessibility', label: 'Accessibility' },
+				{ value: 'block-editor', label: 'Block Editor' },
+			];
+		};
+
+		return [
+			{
+				id: 'title',
+				type: 'text',
+				label: 'Title',
+				isValid: {
+					required: true,
+					custom: ( value ) => {
+						if ( ! value.title?.trim() ) {
+							return 'Title is required.';
+						}
+						return null;
+					},
+				},
+			},
+			{
+				id: 'category',
+				type: 'text',
+				label: 'Category',
+				isValid: {
+					required: true,
+					elements: true,
+				},
+				elements: loadCategories,
+			},
+			{
+				id: 'topics',
+				type: 'array' as const,
+				label: 'Topics',
+				description: 'Pick at least one topic.',
+				isValid: {
+					required: true,
+					elements: true,
+				},
+				elements: loadTopics,
+			},
+		];
+	}, [] );
+
+	const form = useMemo< Form >( () => {
+		return {
+			layout: { type },
+			fields: [ 'title', 'category', 'topics' ],
+		};
+	}, [ type ] );
+
+	const { isValid: canSubmit, isResolving: isValidating } =
+		useAsyncValidation( item, asyncFields, form );
+	const submitDisabled = isValidating || ! canSubmit;
+	let message = 'Complete required fields';
+	if ( canSubmit ) {
+		message = 'Form is ready to submit';
+	}
+	if ( isValidating ) {
+		message = 'Validating async selections…';
+	}
+
+	return (
+		<form>
+			<VStack alignment="left">
+				<DataForm< AsyncItem >
+					data={ item }
+					fields={ asyncFields }
+					form={ form }
+					onChange={ ( edits ) =>
+						setItem( ( prev ) => ( {
+							...prev,
+							...edits,
+						} ) )
+					}
+				/>
+				<Text as="p" variant="muted">
+					{ message }
+				</Text>
+				<Button
+					__next40pxDefaultSize
+					accessibleWhenDisabled
+					disabled={ submitDisabled }
+					variant="primary"
+				>
+					Submit
+				</Button>
+			</VStack>
+		</form>
+	);
+};
+
 const VisibilityComponent = () => {
 	type Post = {
 		name: string;
@@ -1756,6 +1882,20 @@ export const Validation = {
 		required: true,
 		type: 'regular',
 		custom: true,
+	},
+};
+
+export const AsyncValidation = {
+	render: AsyncValidationComponent,
+	argTypes: {
+		type: {
+			control: { type: 'select' },
+			description: 'Chooses the layout for the async validation form.',
+			options: [ 'regular', 'panel' ],
+		},
+	},
+	args: {
+		type: 'regular',
 	},
 };
 

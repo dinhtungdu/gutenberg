@@ -6,7 +6,7 @@ import { store as coreStore } from '@wordpress/core-data';
 import { __ } from '@wordpress/i18n';
 import { store as noticesStore } from '@wordpress/notices';
 import { useState } from '@wordpress/element';
-import { DataForm, isItemValid } from '@wordpress/dataviews';
+import { DataForm, useAsyncValidation } from '@wordpress/dataviews';
 import {
 	Button,
 	__experimentalHStack as HStack,
@@ -36,11 +36,18 @@ function ReorderModal( {
 		useDispatch( coreStore );
 	const { createSuccessNotice, createErrorNotice } =
 		useDispatch( noticesStore );
+	const { isValid, isResolving, validate } = useAsyncValidation(
+		item,
+		fields,
+		formOrderAction
+	);
 
 	async function onOrder( event: React.FormEvent ) {
 		event.preventDefault();
 
-		if ( ! isItemValid( item, fields, formOrderAction ) ) {
+		const result = await validate();
+
+		if ( ! result ) {
 			return;
 		}
 
@@ -68,7 +75,7 @@ function ReorderModal( {
 			} );
 		}
 	}
-	const isSaveDisabled = ! isItemValid( item, fields, formOrderAction );
+	const isSaveDisabled = isResolving || ! isValid;
 	return (
 		<form onSubmit={ onOrder }>
 			<VStack spacing="5">

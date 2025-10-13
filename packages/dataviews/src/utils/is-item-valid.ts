@@ -2,6 +2,7 @@
  * Internal dependencies
  */
 import normalizeFields from './normalize-fields';
+import resolveFieldElements from './resolve-field-elements';
 import type { Field, Form } from '../types';
 
 /**
@@ -90,4 +91,50 @@ export default function isItemValid< Item >(
 
 		return true;
 	} );
+}
+
+async function resolveFieldsElements< Item >(
+	fields: Field< Item >[]
+): Promise< Field< Item >[] > {
+	return Promise.all(
+		fields.map( async ( field ) => {
+			if ( ! field.elements || Array.isArray( field.elements ) ) {
+				return field;
+			}
+
+			if ( typeof field.elements !== 'function' ) {
+				return {
+					...field,
+					elements: [],
+				};
+			}
+
+			try {
+				const elements = await resolveFieldElements( field.elements );
+				return {
+					...field,
+					elements,
+				};
+			} catch {
+				return {
+					...field,
+					elements: [],
+				};
+			}
+		} )
+	);
+}
+
+export async function isItemValidAsync< Item >(
+	item: Item,
+	fields: Field< Item >[],
+	form: Form
+): Promise< boolean > {
+	const fieldsToValidate = form.fields
+		? fields.filter( ( { id } ) => form.fields?.includes( id ) )
+		: fields;
+
+	const resolvedFields = await resolveFieldsElements( fieldsToValidate );
+
+	return isItemValid( item, resolvedFields, form );
 }
