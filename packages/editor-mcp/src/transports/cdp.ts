@@ -148,39 +148,49 @@ export class CDPTransport implements Transport {
 		return this.callInPage< EditorState >(
 			`function() {
 				const blockEditorSelect = window.wp.data.select("core/block-editor");
+				const coreSelect = window.wp.data.select("core");
 				const selectedClientId = blockEditorSelect.getSelectedBlockClientId();
 				const selectedName = selectedClientId ? blockEditorSelect.getBlockName(selectedClientId) : undefined;
 
-				let templateSlug, templateType, pageId, pageTitle, editedEntityType, editedEntityId;
-				try {
-					const editSiteSelect = window.wp.data.select("core/edit-site");
-					if (editSiteSelect) {
-						const context = editSiteSelect.getEditedPostContext?.() || {};
-						templateSlug = editSiteSelect.getEditedPostSlug?.();
-						templateType = editSiteSelect.getEditedPostType?.();
-						editedEntityType = templateType;
-						editedEntityId = editSiteSelect.getEditedPostId?.();
-						pageId = context.postId;
-					}
-				} catch(e) {}
+				// Read current document from URL params, same as useResolveEditedEntity.
+				const urlParams = new URLSearchParams(window.location.search);
+				const routePath = urlParams.get("p") || "/";
 
-				try {
-					const coreEditorSelect = window.wp.data.select("core/editor");
-					if (coreEditorSelect && !templateSlug) {
-						editedEntityType = coreEditorSelect.getCurrentPostType?.();
-						editedEntityId = coreEditorSelect.getCurrentPostId?.();
-					}
-				} catch(e) {}
+				// Parse route path to determine postType and postId.
+				// Routes: /page/:postId, /wp_template/*postId, /wp_template_part/*postId, /wp_block/*postId
+				let editedEntityType = null;
+				let editedEntityId = null;
+				let pageId = null;
 
-				const isDirty = window.wp.data.select("core")?.hasEditsForEntityRecord?.("postType", editedEntityType || "wp_template", editedEntityId) || false;
+				const templateMatch = routePath.match(/^\\/wp_template\\/(.+)/);
+				const templatePartMatch = routePath.match(/^\\/wp_template_part\\/(.+)/);
+				const patternMatch = routePath.match(/^\\/wp_block\\/(.+)/);
+				const pageMatch = routePath.match(/^\\/page\\/(.+)/);
+
+				if (templateMatch) {
+					editedEntityType = "wp_template";
+					editedEntityId = templateMatch[1];
+				} else if (templatePartMatch) {
+					editedEntityType = "wp_template_part";
+					editedEntityId = templatePartMatch[1];
+				} else if (patternMatch) {
+					editedEntityType = "wp_block";
+					editedEntityId = patternMatch[1];
+				} else if (pageMatch) {
+					editedEntityType = "page";
+					editedEntityId = pageMatch[1];
+					pageId = pageMatch[1];
+				}
+
+				// Check dirty state using core store.
+				const isDirty = editedEntityType && editedEntityId
+					? (coreSelect.hasEditsForEntityRecord("postType", editedEntityType, editedEntityId) || false)
+					: false;
 
 				return {
-					templateSlug,
-					templateType,
-					pageId,
-					pageTitle,
 					editedEntityType,
 					editedEntityId,
+					pageId: pageId || undefined,
 					isDirty,
 					selectedBlockClientId: selectedClientId || undefined,
 					selectedBlockName: selectedName || undefined,
@@ -396,17 +406,27 @@ export class CDPTransport implements Transport {
 		return this.callInPage(
 			`async function() {
 				try {
-					const editorDispatch = window.wp.data.dispatch("core/editor");
-					if (editorDispatch?.savePost) {
-						await editorDispatch.savePost();
-						return { success: true, message: "Saved via core/editor" };
+					const coreSelect = window.wp.data.select("core");
+					const coreDispatch = window.wp.data.dispatch("core");
+
+					// Get all dirty entity records, same as Gutenberg's save flow.
+					const dirtyRecords = coreSelect.__experimentalGetDirtyEntityRecords();
+					if (!dirtyRecords || dirtyRecords.length === 0) {
+						return { success: true, message: "Nothing to save" };
 					}
-					const editSiteDispatch = window.wp.data.dispatch("core/edit-site");
-					if (editSiteDispatch?.saveEditedEntityRecord) {
-						await editSiteDispatch.saveEditedEntityRecord();
-						return { success: true, message: "Saved via core/edit-site" };
+
+					// Save each dirty entity, same as saveDirtyEntities in @wordpress/editor.
+					const saved = [];
+					for (const record of dirtyRecords) {
+						try {
+							await coreDispatch.saveEditedEntityRecord(record.kind, record.name, record.key);
+							saved.push(record.kind + "/" + record.name + "/" + record.key);
+						} catch(e) {
+							return { success: false, message: "Failed to save " + record.kind + "/" + record.name + ": " + e.message };
+						}
 					}
-					return { success: false, message: "No save method available" };
+
+					return { success: true, message: "Saved " + saved.length + " record(s)" };
 				} catch(e) {
 					return { success: false, message: e.message };
 				}
@@ -416,21 +436,33 @@ export class CDPTransport implements Transport {
 
 	async getStyles(): Promise< ThemeStyles > {
 		return this.callInPage< ThemeStyles >(
-			`function() {
-				const globalStyles = window.wp.data.select("core")
-					?.getEditedEntityRecord("root", "globalStyles", window.wp.data.select("core/edit-site")?.getSettings?.()?.globalStylesId);
-				if (globalStyles) {
-					return {
-						settings: globalStyles.settings || {},
-						styles: globalStyles.styles || {},
-						version: globalStyles.version,
-					};
+			`async function() {
+				const coreSelect = window.wp.data.select("core");
+				const coreResolve = window.wp.data.resolveSelect("core");
+
+				// Get the merged global styles (theme base + user customizations),
+				// same as Gutenberg's GlobalStylesProvider.
+				const globalStylesId = await coreResolve.__experimentalGetCurrentGlobalStylesId();
+
+				// Theme base styles from theme.json.
+				const baseStyles = await coreResolve.__experimentalGetCurrentThemeBaseGlobalStyles();
+
+				// User customizations from the database.
+				let userStyles = {};
+				if (globalStylesId) {
+					await coreResolve.getEntityRecord("root", "globalStyles", globalStylesId);
+					userStyles = coreSelect.getEditedEntityRecord("root", "globalStyles", globalStylesId) || {};
 				}
-				const settings = window.wp.data.select("core/block-editor").getSettings();
-				return {
-					settings: settings.__experimentalFeatures || {},
-					styles: {},
-				};
+
+				// Merge: base theme.json settings/styles with user overrides.
+				const settings = Object.keys(userStyles.settings || {}).length > 0
+					? userStyles.settings
+					: (baseStyles?.settings || {});
+				const styles = Object.keys(userStyles.styles || {}).length > 0
+					? userStyles.styles
+					: (baseStyles?.styles || {});
+
+				return { settings, styles, version: baseStyles?.version };
 			}`
 		);
 	}
@@ -441,7 +473,8 @@ export class CDPTransport implements Transport {
 	} ): Promise< { success: boolean } > {
 		return this.callInPage(
 			`async function(newSettings, newStyles) {
-				const globalStylesId = window.wp.data.select("core/edit-site")?.getSettings?.()?.globalStylesId;
+				const coreResolve = window.wp.data.resolveSelect("core");
+				const globalStylesId = await coreResolve.__experimentalGetCurrentGlobalStylesId();
 				if (!globalStylesId) return { success: false };
 
 				const edits = {};
