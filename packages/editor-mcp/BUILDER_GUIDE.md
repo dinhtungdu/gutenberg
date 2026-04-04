@@ -2,13 +2,9 @@
 
 Reference for AI agents building WordPress block themes via the editor-mcp server.
 
-## Further Reading
+**Further reading**: https://developer.wordpress.org/themes/ | https://developer.wordpress.org/block-editor/
 
-For deeper understanding beyond this quick-reference, browse:
-
-- **Block themes handbook**: https://developer.wordpress.org/themes/ — full theme development guide (structure, templates, theme.json, styles, patterns)
-- **Block editor handbook**: https://developer.wordpress.org/block-editor/ — block API, block supports, theme.json reference, core blocks list
-- **`wp_lookup_block`** — query any block's schema at runtime (more reliable than static docs)
+Gutenberg ships markdown docs alongside the code. After each section below, references point to the relevant doc files for deeper details.
 
 ---
 
@@ -129,6 +125,324 @@ wp_lookup_block({ query: "", listAll: true })
 
 ---
 
+## Block Theme Structure
+
+A block theme requires only two files: `style.css` (theme metadata) and `templates/index.html` (fallback template).
+
+```
+theme/
+├── style.css                 # Theme name, description, version
+├── theme.json                # Global settings & styles
+├── functions.php             # Custom PHP functionality (optional)
+├── templates/                # Full-page templates (HTML)
+│   ├── index.html            # Required fallback
+│   ├── front-page.html
+│   ├── single.html
+│   ├── page.html
+│   ├── archive.html
+│   ├── 404.html
+│   └── search.html
+├── parts/                    # Reusable template sections (HTML)
+│   ├── header.html
+│   └── footer.html
+├── patterns/                 # Reusable block patterns (PHP)
+│   └── hero.php
+├── styles/                   # Style variations (JSON)
+│   └── dark.json
+└── assets/                   # CSS, JS, images, fonts
+```
+
+### Template Hierarchy
+
+WordPress selects the most specific template available, falling back through a chain:
+
+| Context | Template Chain (most → least specific) |
+|---------|---------------------------------------|
+| **Front page** | `front-page.html` → `home.html` → `index.html` |
+| **Single post** | `single-{post_type}-{slug}.html` → `single-{post_type}.html` → `single.html` → `singular.html` → `index.html` |
+| **Page** | `page-{slug}.html` → `page-{id}.html` → `page.html` → `singular.html` → `index.html` |
+| **Category** | `category-{slug}.html` → `category-{id}.html` → `category.html` → `archive.html` → `index.html` |
+| **Tag** | `tag-{slug}.html` → `tag-{id}.html` → `tag.html` → `archive.html` → `index.html` |
+| **Author** | `author-{nicename}.html` → `author-{id}.html` → `author.html` → `archive.html` → `index.html` |
+| **Custom taxonomy** | `taxonomy-{tax}-{term}.html` → `taxonomy-{tax}.html` → `taxonomy.html` → `archive.html` → `index.html` |
+| **Post type archive** | `archive-{post_type}.html` → `archive.html` → `index.html` |
+| **Search** | `search.html` → `index.html` |
+| **404** | `404.html` → `index.html` |
+
+### Template Parts
+
+Reusable sections stored in `/parts/` as `.html` files. Referenced in templates via:
+
+```html
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+```
+
+Register in `theme.json` for proper editor labels:
+
+```json
+{
+  "templateParts": [
+    { "area": "header", "name": "header", "title": "Header" },
+    { "area": "footer", "name": "footer", "title": "Footer" }
+  ]
+}
+```
+
+Areas: `header`, `footer`, `uncategorized` (General).
+
+### Patterns
+
+Reusable block groups stored in `/patterns/` as PHP files with a header comment:
+
+```php
+<?php
+/**
+ * Title: Hero
+ * Slug: themeslug/hero
+ * Categories: featured
+ * Keywords: hero, banner
+ * Block Types: core/cover
+ * Viewport Width: 1200
+ */
+?>
+<!-- wp:cover {"overlayColor":"contrast","align":"full"} -->
+<div class="wp-block-cover alignfull">
+  <!-- block markup -->
+</div>
+<!-- /wp:cover -->
+```
+
+Header fields: `Title`, `Slug`, `Categories`, `Description`, `Keywords`, `Block Types`, `Post Types`, `Template Types`, `Inserter` (boolean), `Viewport Width`.
+
+You can also reference patterns from the WordPress Pattern Directory in `theme.json`:
+
+```json
+{
+  "patterns": ["short-text-and-image", "pricing-table"]
+}
+```
+
+> **Docs**: `docs/how-to-guides/themes/README.md` · `docs/reference-guides/block-api/block-patterns.md` · `docs/reference-guides/block-api/block-templates.md`
+
+---
+
+## theme.json — Global Settings & Styles
+
+The `theme.json` file configures the entire design system. Settings follow a priority hierarchy: WordPress defaults < theme < child theme < user customizations (database).
+
+```json
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 3,
+  "settings": {},
+  "styles": {},
+  "customTemplates": [],
+  "templateParts": [],
+  "patterns": []
+}
+```
+
+### Settings
+
+Settings control what options are available in the editor and define presets. Every preset automatically generates a CSS custom property: `--wp--preset--{type}--{slug}`.
+
+#### Color
+
+```json
+{
+  "settings": {
+    "color": {
+      "palette": [
+        { "color": "#ffffff", "name": "Base", "slug": "base" },
+        { "color": "#000000", "name": "Contrast", "slug": "contrast" },
+        { "color": "#89CFF0", "name": "Primary", "slug": "primary" }
+      ],
+      "gradients": [
+        { "gradient": "linear-gradient(to right, #10b981, #64a30d)", "name": "Emerald", "slug": "emerald" }
+      ],
+      "duotone": [
+        { "colors": ["#450a0a", "#fef2f2"], "name": "Red", "slug": "red" }
+      ],
+      "defaultPalette": false,
+      "defaultGradients": false,
+      "custom": true,
+      "link": true,
+      "text": true,
+      "background": true
+    }
+  }
+}
+```
+
+Generated CSS: `--wp--preset--color--primary: #89CFF0;`
+
+Convention: `base` and `contrast` slugs are de facto standards for site background and text.
+
+#### Typography
+
+```json
+{
+  "settings": {
+    "typography": {
+      "fontFamilies": [
+        {
+          "name": "Primary",
+          "slug": "primary",
+          "fontFamily": "Charter, 'Bitstream Charter', Cambria, serif"
+        },
+        {
+          "name": "Secondary",
+          "slug": "secondary",
+          "fontFamily": "'Open Sans', sans-serif",
+          "fontFace": [
+            {
+              "fontFamily": "Open Sans",
+              "fontWeight": "300 800",
+              "fontStyle": "normal",
+              "src": ["file:./assets/fonts/open-sans.woff2"]
+            }
+          ]
+        }
+      ],
+      "fontSizes": [
+        { "name": "Small", "size": "1rem", "slug": "sm" },
+        { "name": "Medium", "size": "1.25rem", "slug": "md", "fluid": { "min": "1rem", "max": "1.5rem" } },
+        { "name": "Large", "size": "1.5rem", "slug": "lg", "fluid": { "min": "1.25rem", "max": "2rem" } }
+      ],
+      "fluid": true
+    }
+  }
+}
+```
+
+Generated CSS: `--wp--preset--font-family--primary`, `--wp--preset--font-size--md` (fluid sizes use `clamp()`).
+
+Controls: `customFontSize`, `dropCap`, `fontStyle`, `fontWeight`, `letterSpacing`, `lineHeight`, `textTransform`, `textDecoration`, `writingMode`.
+
+#### Spacing
+
+```json
+{
+  "settings": {
+    "spacing": {
+      "padding": true,
+      "margin": true,
+      "blockGap": true,
+      "units": ["px", "em", "rem", "vh", "vw", "%"],
+      "spacingSizes": [
+        { "name": "Small", "size": "0.5rem", "slug": "20" },
+        { "name": "Medium", "size": "1rem", "slug": "40" },
+        { "name": "Large", "size": "2rem", "slug": "60" },
+        { "name": "X-Large", "size": "clamp(2rem, 4vw, 4rem)", "slug": "80" }
+      ]
+    }
+  }
+}
+```
+
+Generated CSS: `--wp--preset--spacing--40: 1rem;`
+
+Alternative: use `spacingScale` to auto-generate sizes: `{ operator: "*", increment: 1.5, steps: 7, mediumStep: 1.5, unit: "rem" }`.
+
+#### Layout
+
+```json
+{
+  "settings": {
+    "layout": {
+      "contentSize": "650px",
+      "wideSize": "1200px"
+    }
+  }
+}
+```
+
+#### Other Settings
+
+- **`appearanceTools`**: `true` enables border, spacing, typography, shadow, and dimensions controls in one shot.
+- **`border`**: `color`, `radius`, `style`, `width` (each boolean).
+- **`shadow`**: Enable box-shadow support and define custom shadow presets.
+- **`dimensions`**: `minHeight` (boolean).
+- **`position`**: `sticky` (boolean).
+- **`useRootPaddingAwareAlignments`**: `true` for proper full-width alignment with root padding.
+- **`blocks`**: Per-block setting overrides (e.g., `"core/heading": { "color": { "palette": [...] } }`).
+
+### Styles
+
+Styles apply design values at three levels: global, elements, and per-block.
+
+```json
+{
+  "styles": {
+    "color": {
+      "text": "var(--wp--preset--color--contrast)",
+      "background": "var(--wp--preset--color--base)"
+    },
+    "typography": {
+      "fontFamily": "var(--wp--preset--font-family--primary)",
+      "fontSize": "var(--wp--preset--font-size--md)",
+      "lineHeight": "1.6"
+    },
+    "spacing": {
+      "padding": { "top": "0", "right": "var(--wp--preset--spacing--40)", "bottom": "0", "left": "var(--wp--preset--spacing--40)" }
+    },
+    "elements": {
+      "heading": {
+        "typography": { "fontFamily": "var(--wp--preset--font-family--secondary)", "fontWeight": "700" }
+      },
+      "link": {
+        "color": { "text": "var(--wp--preset--color--primary)" }
+      },
+      "button": {
+        "color": { "text": "#ffffff", "background": "var(--wp--preset--color--primary)" },
+        "border": { "radius": "4px" }
+      }
+    },
+    "blocks": {
+      "core/code": {
+        "color": { "text": "#ffffff", "background": "#1e1e1e" }
+      }
+    }
+  }
+}
+```
+
+Reference presets in styles using `var(--wp--preset--{type}--{slug})`.
+
+> **Docs**: `docs/reference-guides/theme-json-reference/theme-json-living.md` · `docs/how-to-guides/themes/global-settings-and-styles.md` · `docs/explanations/architecture/styles.md`
+
+### Reading & Updating Styles via MCP
+
+```jsonc
+// Read merged theme.json (theme defaults + user customizations)
+wp_get_styles()
+// Returns: { settings, styles, version }
+
+// Update color palette
+wp_set_styles({
+  settings: {
+    color: {
+      palette: [
+        { slug: "primary", name: "Primary", color: "#1a1a2e" },
+        { slug: "accent", name: "Accent", color: "#e94560" }
+      ]
+    }
+  }
+})
+
+// Change global typography
+wp_set_styles({
+  styles: {
+    typography: {
+      fontFamily: "var(--wp--preset--font-family--inter)",
+      fontSize: "var(--wp--preset--font-size--medium)"
+    }
+  }
+})
+```
+
+---
+
 ## Universal Style Attribute Schema
 
 Almost every block accepts the same `style` JSON structure in its attributes:
@@ -171,6 +485,8 @@ Almost every block accepts the same `style` JSON structure in its attributes:
 - Custom values go in `style.color.background`, `style.typography.fontSize`, etc.
 
 Check `wp_get_styles` to see available preset slugs for the active theme.
+
+> **Docs**: `docs/reference-guides/block-api/block-supports.md` · `docs/reference-guides/block-api/block-attributes.md`
 
 ---
 
@@ -337,46 +653,6 @@ wp_insert_blocks({
 
 ---
 
-## Global Styles
-
-### Reading Styles
-
-`wp_get_styles` returns the merged theme.json (theme defaults + user customizations):
-
-```jsonc
-// Returns: { settings, styles, version }
-// settings: color palette, font families/sizes, spacing units, layout widths
-// styles: default colors, typography, element styles, per-block styles
-```
-
-### Updating Styles
-
-```jsonc
-// Change the color palette
-wp_set_styles({
-  settings: {
-    color: {
-      palette: [
-        { slug: "primary", name: "Primary", color: "#1a1a2e" },
-        { slug: "accent", name: "Accent", color: "#e94560" }
-      ]
-    }
-  }
-})
-
-// Change global typography
-wp_set_styles({
-  styles: {
-    typography: {
-      fontFamily: "var(--wp--preset--font-family--inter)",
-      fontSize: "var(--wp--preset--font-size--medium)"
-    }
-  }
-})
-```
-
----
-
 ## Visual Verification
 
 Always verify changes visually:
@@ -436,6 +712,8 @@ wp_get_computed_layout({
 | Tabs | `core/tabs` | Tabbed content |
 | Search | `core/search` | Search form |
 | Social Icons | `core/social-links` | Social media links |
+
+> **Docs**: `docs/reference-guides/core-blocks.md`
 
 ### Theme / Dynamic
 | Block | Name | Use for |
