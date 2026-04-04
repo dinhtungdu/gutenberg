@@ -7,11 +7,11 @@ Reference for AI agents building WordPress block themes via the editor-mcp serve
 Before using this guide, familiarize yourself with:
 
 - **Block themes**: https://developer.wordpress.org/themes/
-- **Block API reference**: `docs/reference-guides/block-api/` — block attributes, supports, registration
-- **Block supports**: `docs/reference-guides/block-api/block-supports.md` — style attributes (color, typography, spacing, border, shadow, dimensions)
-- **theme.json**: `docs/reference-guides/theme-json-reference/theme-json-living.md` — global styles and settings schema
-- **Core blocks reference**: `docs/reference-guides/core-blocks.md` — all available blocks with attributes
-- **Theme how-to guides**: `docs/how-to-guides/themes/` — theme development patterns
+- **Block API reference**: https://developer.wordpress.org/block-editor/reference-guides/block-api/
+- **Block supports** (style attributes): https://developer.wordpress.org/block-editor/reference-guides/block-api/block-supports/
+- **theme.json reference**: https://developer.wordpress.org/block-editor/reference-guides/theme-json-reference/theme-json-living/
+- **Core blocks reference**: https://developer.wordpress.org/block-editor/reference-guides/core-blocks/
+- **Theme development guides**: https://developer.wordpress.org/block-editor/how-to-guides/themes/
 
 Use `wp_lookup_block` to query any block's schema at runtime — this is more reliable than static docs.
 
