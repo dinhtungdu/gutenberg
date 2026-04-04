@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -6,6 +9,16 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from './transports/types.js';
 import { tools } from './tools/index.js';
+
+function loadBuilderGuide(): string {
+	const __dirname = dirname( fileURLToPath( import.meta.url ) );
+	const guidePath = resolve( __dirname, '..', 'BUILDER_GUIDE.md' );
+	try {
+		return readFileSync( guidePath, 'utf-8' );
+	} catch {
+		return '';
+	}
+}
 
 export interface ServerOptions {
 	transport: Transport;
@@ -18,7 +31,10 @@ export async function createServer(
 
 	const server = new Server(
 		{ name: 'wordpress-editor', version: '0.1.0' },
-		{ capabilities: { tools: {} } }
+		{
+			capabilities: { tools: {} },
+			instructions: loadBuilderGuide(),
+		}
 	);
 
 	// List tools handler
