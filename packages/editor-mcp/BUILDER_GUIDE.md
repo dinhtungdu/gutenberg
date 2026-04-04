@@ -2,6 +2,14 @@
 
 Reference for AI agents building WordPress block themes via the editor-mcp server.
 
+## Further Reading
+
+For deeper understanding beyond this quick-reference, browse:
+
+- **Block themes handbook**: https://developer.wordpress.org/themes/ — full theme development guide (structure, templates, theme.json, styles, patterns)
+- **Block editor handbook**: https://developer.wordpress.org/block-editor/ — block API, block supports, theme.json reference, core blocks list
+- **`wp_lookup_block`** — query any block's schema at runtime (more reliable than static docs)
+
 ---
 
 ## Core Concept
