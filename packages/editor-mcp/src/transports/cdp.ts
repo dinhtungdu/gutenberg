@@ -79,6 +79,16 @@ export class CDPTransport implements Transport {
 
 		if ( url.pathname && url.pathname !== '/' ) {
 			cdpOptions.target = this.options.target;
+		} else {
+			// Auto-detect the WordPress site editor tab.
+			const tabs = await ( CDP as any ).List( { host, port } );
+			const siteEditorTab = tabs.find(
+				( t: { url: string; type?: string } ) =>
+					t.type === 'page' && t.url.includes( 'site-editor' )
+			);
+			if ( siteEditorTab ) {
+				cdpOptions.target = siteEditorTab;
+			}
 		}
 
 		this.client = ( await CDP( cdpOptions ) ) as unknown as CDPClient;
@@ -186,26 +196,74 @@ export class CDPTransport implements Transport {
 	} ): Promise< { success: boolean; message: string } > {
 		return this.callInPage(
 			`async function(type, slug, id) {
-				const editSite = window.wp.data.dispatch("core/edit-site");
-				if (!editSite) {
-					return { success: false, message: "edit-site store not available" };
+				const coreSelect = window.wp.data.select("core");
+				const coreResolve = window.wp.data.resolveSelect("core");
+
+				// For pages, resolve slug to post ID if needed.
+				if (type === "page" && slug && !id) {
+					await coreResolve.getEntityRecords("postType", "page", { slug: slug, per_page: 1 });
+					const pages = coreSelect.getEntityRecords("postType", "page", { slug: slug, per_page: 1 });
+					if (pages && pages.length > 0) {
+						id = pages[0].id;
+					} else {
+						return { success: false, message: "Page not found: " + slug };
+					}
 				}
 
-				let postType;
-				if (type === "template") postType = "wp_template";
-				else if (type === "template-part") postType = "wp_template_part";
-				else if (type === "pattern") postType = "wp_block";
-				else postType = "page";
-
-				if (type === "page" && id) {
-					await editSite.setPage?.({ context: { postType: "page", postId: id } });
-				} else if (slug) {
-					await editSite.setTemplate?.(slug);
-				} else if (id) {
-					await editSite.setEditedEntity?.(postType, id);
+				// For templates/template-parts, resolve short slug to full theme//slug ID.
+				if ((type === "template" || type === "template-part") && slug && !slug.includes("//")) {
+					const postType = type === "template" ? "wp_template" : "wp_template_part";
+					await coreResolve.getEntityRecords("postType", postType, { per_page: -1 });
+					const records = coreSelect.getEntityRecords("postType", postType, { per_page: -1 });
+					if (records) {
+						const slugLower = slug.toLowerCase();
+						const match = records.find(r =>
+							r.slug === slug ||
+							r.id === slug ||
+							(r.title && (r.title.rendered || r.title.raw || "").toLowerCase().replace(/\\s+/g, "-") === slugLower) ||
+							(r.title && (r.title.rendered || r.title.raw || "").toLowerCase() === slugLower.replace(/-/g, " "))
+						);
+						if (match) {
+							slug = match.id;
+						} else {
+							const available = records.map(r => r.slug).join(", ");
+							return { success: false, message: "Template not found: " + slug + ". Available: " + available };
+						}
+					}
 				}
 
-				return { success: true, message: "Navigated to " + type + " " + (slug || id) };
+				let routePath;
+				if (type === "template") {
+					routePath = "/wp_template/" + (slug || id);
+				} else if (type === "template-part") {
+					routePath = "/wp_template_part/" + (slug || id);
+				} else if (type === "pattern") {
+					routePath = "/wp_block/" + (slug || id);
+				} else if (type === "page") {
+					if (!id) return { success: false, message: "Page ID is required" };
+					routePath = "/page/" + id;
+				}
+
+				// Replicate the site editor's history.navigate() behavior:
+				// 1. Build search string the same way useHistory().navigate does
+				//    (using wp.url.buildQueryString with pathArg "p")
+				// 2. Push state with idx/key matching createBrowserHistory format
+				// 3. Dispatch popstate so the history library's listener fires
+				const search = window.wp.url.buildQueryString({
+					p: routePath,
+					canvas: "edit",
+				});
+				const newUrl = window.location.pathname + "?" + search;
+				const currentIdx = (window.history.state && window.history.state.idx) || 0;
+				const newState = {
+					usr: null,
+					key: Math.random().toString(36).slice(2, 10),
+					idx: currentIdx + 1,
+				};
+				window.history.pushState(newState, "", newUrl);
+				window.dispatchEvent(new PopStateEvent("popstate", { state: newState }));
+
+				return { success: true, message: "Navigated to " + type + " " + (slug || id) + " (editor may still be loading)" };
 			}`,
 			args.type,
 			args.slug,
