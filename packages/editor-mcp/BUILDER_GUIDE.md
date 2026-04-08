@@ -90,10 +90,13 @@ This produces a `core/group` (section) with heading, paragraph, and button block
 - Use `clamp()` for responsive typography: `font-size: clamp(36px, 5vw, 64px)`
 - Avoid deeply nested containers — blocks work best with shallow nesting
 
+### CSS features that need special handling
+
+- **`background-image: url(...)`** on containers — the converter maps these to `style.background.backgroundImage`, but the image **must** be in the WP media library with `{ url, id, source: "file" }` to render on the frontend. External URLs won't produce CSS output. Upload images first via REST API, then reference by media library URL and ID. Works for both full backgrounds (`backgroundSize: "cover"`) and repeating patterns (`backgroundSize: "38px 38px"`, `backgroundRepeat: "repeat"`).
+
 ### CSS features that DON'T convert to blocks
 
-- **`background-image: url(...)`** on containers — blocks require images in the WP media library for `style.background.backgroundImage` to render. Use `core/cover` block with an uploaded image instead, or upload the image first via REST API.
-- **`::before` / `::after` pseudo-elements** — no block equivalent. Decorative overlays, grid patterns, and gradient masks must use `core/cover` overlays or custom CSS classes.
+- **`::before` / `::after` pseudo-elements** — no block equivalent. Decorative overlays and gradient masks must use `core/cover` overlays or custom CSS classes.
 - **CSS `mask-image`** — not supported in block styles.
 - **`position: absolute/fixed`** — blocks use flow/flex/grid layouts only. Overlapping elements need `core/cover` or `core/group` with custom CSS.
 - **CSS animations / transitions** — not supported in block styles.
