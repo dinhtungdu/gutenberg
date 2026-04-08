@@ -12,7 +12,10 @@ Gutenberg ships markdown docs alongside the code. After each section below, refe
 
 Block themes = HTML with comment delimiters (`<!-- wp:block-name {"attr":"val"} -->...<!-- /wp:block-name -->`). Blocks are semantic HTML elements with a shared style attribute schema. Know the schema, write any design.
 
-**Approach**: Navigate to document → read blocks → insert/update/replace blocks → verify with screenshot → save.
+**Two approaches** (choose based on the task):
+
+1. **HTML-first (recommended for new designs)**: Write HTML/CSS → `wp_import_html` converts to blocks → verify with screenshot → save.
+2. **Block-by-block (for edits)**: Navigate to document → read blocks → insert/update/replace → verify → save.
 
 ---
 
@@ -29,6 +32,7 @@ Block themes = HTML with comment delimiters (`<!-- wp:block-name {"attr":"val"} 
 | `wp_remove_blocks` | Delete blocks by clientId |
 | `wp_lookup_block` | Query block schema: attributes, supports, keywords |
 | `wp_parse_markup` | Validate block markup before inserting |
+| `wp_import_html` | **Convert raw HTML/CSS to blocks** — maps CSS to block styles |
 | `wp_get_styles` | Read theme.json global styles and settings |
 | `wp_set_styles` | Update global styles (colors, typography, spacing) |
 | `wp_get_screenshot` | Capture the editor canvas for visual verification |
@@ -38,7 +42,57 @@ Block themes = HTML with comment delimiters (`<!-- wp:block-name {"attr":"val"} 
 
 ---
 
-## Typical Workflow
+## HTML-First Workflow (Recommended for New Designs)
+
+The fastest way to build a design is to write HTML/CSS and let `wp_import_html` convert it:
+
+```
+1. wp_open_document        → navigate to target template/page
+2. wp_import_html(html, load=true) → write HTML/CSS, convert + load into editor
+3. wp_get_screenshot       → verify the result visually
+4. wp_update_block / wp_insert_blocks → fine-tune individual blocks if needed
+5. wp_save                 → persist changes
+```
+
+### How wp_import_html works
+
+- Parses `<style>` tags and resolves class-based CSS onto elements
+- Maps CSS properties to native block style attributes (see Style Attribute Schema below)
+- Converts HTML elements to block types: `<h1>`→heading, `<p>`→paragraph, `<div>`→group, `<img>`→image, etc.
+- Detects flex/grid CSS → block layout attributes
+- Button-like `<a>` tags (with background + padding) → `core/buttons` + `core/button`
+- With `load: true`, uses `createBlock()` in the browser for perfectly valid blocks
+
+### Example
+
+```html
+<style>
+  .hero { background-color: #f6f7f7; padding: 96px 36px 120px; }
+  .hero h1 { font-size: clamp(36px, 5vw, 64px); font-weight: 400; }
+  .hero p { font-size: 18px; color: #3c434a; }
+  .cta { background-color: #3858E9; color: white; padding: 12px 17px; border-radius: 4px; }
+</style>
+<section class="hero">
+  <h1>AI tools built for your WordPress site</h1>
+  <p>Write better content and connect AI agents.</p>
+  <a href="#" class="cta">Try the AI website builder</a>
+</section>
+```
+
+This produces a `core/group` (section) with heading, paragraph, and button blocks — all with native block styles, not inline CSS.
+
+### Tips for writing HTML that converts well
+
+- Use semantic elements: `<section>`, `<h1>`–`<h6>`, `<p>`, `<ul>`, `<img>`, `<a>`
+- Use `<style>` tags with classes (cleaner than inline styles)
+- Use `display: flex` / `display: grid` for layouts — they map to block layout types
+- For buttons, style `<a>` tags with `background-color` + `padding`
+- Use `clamp()` for responsive typography: `font-size: clamp(36px, 5vw, 64px)`
+- Avoid deeply nested containers — blocks work best with shallow nesting
+
+---
+
+## Block-by-Block Workflow (For Edits)
 
 ```
 1. wp_open_document  → navigate to template/page
@@ -50,6 +104,36 @@ Block themes = HTML with comment delimiters (`<!-- wp:block-name {"attr":"val"} 
 ```
 
 **Always verify visually.** After every insert/update/replace, call `wp_get_screenshot` to confirm the result matches intent. Use `wp_get_computed_layout` to check specific layout metrics when precision matters.
+
+---
+
+## Layout Width: contentSize and wideSize
+
+The site editor's global styles define two key widths that affect all `constrained` layout blocks:
+
+- **`contentSize`** — default max-width for content blocks (e.g. `645px`)
+- **`wideSize`** — max-width for blocks with `align: "wide"` (e.g. `1340px`)
+
+Check current values with `wp_get_styles`. These come from `settings.layout` in theme.json.
+
+### Breaking out of the constraint
+
+For full-width sections (heroes, banners), you have three options:
+
+1. **`align: "full"`** on the block — stretches to viewport edge, ignoring both contentSize and wideSize
+2. **`align: "wide"`** on the block — stretches to wideSize
+3. **`layout: { type: "default" }`** (flow layout) — no width constraint at all
+
+```jsonc
+// Full-width hero section
+{ "name": "core/group", "attributes": {
+  "align": "full",
+  "layout": { "type": "constrained", "contentSize": "1200px" },
+  "style": { "spacing": { "padding": { "top": "96px", "bottom": "120px" } } }
+}}
+```
+
+**Common mistake**: Using `constrained` layout without setting `contentSize` or `align` — the content gets squeezed to the theme's narrow default (often 645px).
 
 ### Navigation
 

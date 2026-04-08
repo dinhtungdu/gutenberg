@@ -400,6 +400,22 @@ function mapToColumns(
 			childStyles.width || childStyles[ 'flex-basis' ] || undefined;
 		const childMapped = mapStylesToBlockAttrs( childStyles );
 
+		// Strip dimensions.width from column style — the column `width`
+		// attribute handles this via flex-basis. Keeping both causes issues.
+		if ( childMapped.style?.dimensions ) {
+			const dims = childMapped.style.dimensions as Record<
+				string,
+				unknown
+			>;
+			delete dims.width;
+			if ( Object.keys( dims ).length === 0 ) {
+				delete childMapped.style.dimensions;
+			}
+			if ( Object.keys( childMapped.style ).length === 0 ) {
+				delete childMapped.style;
+			}
+		}
+
 		return {
 			name: 'core/column',
 			attributes: {
