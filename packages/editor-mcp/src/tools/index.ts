@@ -4,6 +4,10 @@ import {
 	searchBlocks,
 	loadBlockCatalog,
 } from '../block-catalog.js';
+import {
+	convertHtmlToBlocks,
+	convertHtmlToBlockDefs,
+} from '../html-to-blocks/index.js';
 
 type ToolResult = {
 	content: Array<
@@ -457,6 +461,59 @@ export const tools: ToolDef[] = [
 		handler: async ( _args, transport ) => {
 			const result = await transport.exportTemplate();
 			return text( result );
+		},
+	},
+
+	// 16. wp_import_html
+	{
+		name: 'wp_import_html',
+		description:
+			'Convert raw HTML/CSS into Gutenberg block markup. Maps CSS properties to block style attributes (padding, margin, colors, typography, borders, etc.), detects flex/grid layouts, and converts semantic HTML elements to appropriate block types. Optionally loads the result into the editor, replacing all current content.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				html: {
+					type: 'string',
+					description:
+						'Raw HTML/CSS to convert. Can include <style> tags with class-based CSS.',
+				},
+				load: {
+					type: 'boolean',
+					description:
+						'If true, parse the generated markup and load it into the editor (replaces all current blocks). Default: false (just returns the markup).',
+				},
+			},
+			required: [ 'html' ],
+		},
+		handler: async ( args, transport ) => {
+			const { html, load } = args as { html: string; load?: boolean };
+
+			if ( ! load ) {
+				const markup = convertHtmlToBlocks( html );
+				return text( { markup } );
+			}
+
+			// Convert HTML to block definitions (name + attributes + innerBlocks)
+			// and let the browser's createBlock() produce valid blocks
+			const blockDefs = convertHtmlToBlockDefs( html );
+
+			// Get all existing blocks and remove them
+			const existingBlocks = await transport.getBlocks();
+			if ( existingBlocks.length > 0 ) {
+				await transport.removeBlocks( {
+					clientIds: existingBlocks.map( ( b ) => b.clientId ),
+				} );
+			}
+
+			const result = await transport.insertBlocks( {
+				blocks: blockDefs,
+			} );
+
+			return text( {
+				loaded: true,
+				blockCount: blockDefs.length,
+				clientIds: result.clientIds,
+			} );
 		},
 	},
 ];
