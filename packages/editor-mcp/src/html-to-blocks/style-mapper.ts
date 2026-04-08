@@ -185,10 +185,31 @@ export function mapStylesToBlockAttrs(
 			case 'background-image':
 				if ( v.includes( 'gradient' ) ) {
 					setNested( style, 'color.gradient', v );
-				} else if ( prop === 'background' && ! v.includes( 'url(' ) ) {
+				} else if ( v.includes( 'url(' ) ) {
+					// Background image URL — map to style.background.backgroundImage
+					// Note: external URLs may not render; images should be in WP media library
+					const urlMatch = v.match(
+						/url\(\s*["']?([^"')]+)["']?\s*\)/
+					);
+					if ( urlMatch ) {
+						setNested( style, 'background.backgroundImage', {
+							url: urlMatch[ 1 ],
+							source: 'file',
+						} );
+					}
+				} else if ( prop === 'background' ) {
 					// Simple background color
 					setNested( style, 'color.background', v );
 				}
+				break;
+			case 'background-size':
+				setNested( style, 'background.backgroundSize', v );
+				break;
+			case 'background-position':
+				setNested( style, 'background.backgroundPosition', v );
+				break;
+			case 'background-repeat':
+				setNested( style, 'background.backgroundRepeat', v );
 				break;
 
 			// Typography
