@@ -49,9 +49,10 @@ The fastest way to build a design is to write HTML/CSS and let `wp_import_html` 
 ```
 1. wp_open_document        → navigate to target template/page
 2. wp_import_html(html, load=true) → write HTML/CSS, convert + load into editor
-3. wp_get_screenshot       → verify the result visually
-4. wp_update_block / wp_insert_blocks → fine-tune individual blocks if needed
-5. wp_save                 → persist changes
+3. wp_get_computed_layout   → verify styles are applied (colors, spacing, etc.)
+4. wp_get_screenshot       → check overall layout visually
+5. wp_update_block / wp_insert_blocks → fine-tune individual blocks if needed
+6. wp_save                 → persist changes
 ```
 
 ### How wp_import_html works
@@ -115,7 +116,11 @@ This produces a `core/group` (section) with heading, paragraph, and button block
 6. wp_save           → persist changes
 ```
 
-**Always verify visually.** After every insert/update/replace, call `wp_get_screenshot` to confirm the result matches intent. Use `wp_get_computed_layout` to check specific layout metrics when precision matters.
+### Verification
+
+- **Computed styles (preferred):** Use `wp_get_computed_layout` or browser devtools `getComputedStyle()` to check that CSS properties (colors, padding, background-image, etc.) are actually applied. This is definitive — no ambiguity.
+- **DOM/a11y tree:** Use browser devtools snapshots to verify structure (block nesting, element types, text content).
+- **Screenshots (supplementary):** Use `wp_get_screenshot` for high-level layout checks. Screenshots get compressed, so fine details (subtle patterns, thin borders, small text) may not be visible. Never rely solely on screenshots to verify CSS is working.
 
 ---
 
