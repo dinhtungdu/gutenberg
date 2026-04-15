@@ -10,12 +10,13 @@ Gutenberg ships markdown docs alongside the code. After each section below, refe
 
 ## Core Concept
 
-Block themes = HTML with comment delimiters (`<!-- wp:block-name {"attr":"val"} -->...<!-- /wp:block-name -->`). Blocks are semantic HTML elements with a shared style attribute schema. Know the schema, write any design.
+Block themes = structured JSON trees (name + attributes + innerBlocks). Every design is a composition of blocks using theme presets for colors, typography, and spacing.
 
-**Two approaches** (choose based on the task):
+**Three approaches** (choose based on the task):
 
-1. **HTML-first (recommended for new designs)**: Write HTML/CSS → `wp_import_html` converts to blocks → verify with screenshot → save.
+1. **Block-native (recommended for new designs)**: Generate block JSON directly using `wp_insert_blocks` → verify with computed styles → save.
 2. **Block-by-block (for edits)**: Navigate to document → read blocks → insert/update/replace → verify → save.
+3. **HTML import (for migration)**: Convert existing HTML/CSS via `wp_import_html` → verify → save.
 
 ---
 
@@ -42,9 +43,322 @@ Block themes = HTML with comment delimiters (`<!-- wp:block-name {"attr":"val"} 
 
 ---
 
-## HTML-First Workflow (Recommended for New Designs)
+## Block-Native Workflow (Recommended for New Designs)
 
-The fastest way to build a design is to write HTML/CSS and let `wp_import_html` convert it:
+The key insight: **generate block JSON directly, not HTML**. This approach:
+- Uses theme presets (colors, spacing, typography) for consistency
+- Produces perfectly valid blocks with no conversion loss
+- Maps design intent directly to block structures
+
+### Why Block-Native Beats HTML Conversion
+
+| HTML-first | Block-native |
+|------------|--------------|
+| Write CSS → convert to block styles | Use block style schema directly |
+| CSS features may not map to blocks | Every attribute is supported |
+| Lossy: pseudo-elements, animations lost | Lossless: what you write is what you get |
+| External image URLs don't work | Use media library IDs |
+| Requires understanding CSS + blocks | Only need to know blocks |
+
+### Workflow
+
+```
+1. wp_get_styles           → read theme presets (colors, spacing, fonts)
+2. wp_lookup_block         → check block schemas for unfamiliar blocks
+3. wp_insert_blocks        → generate blocks directly from design intent
+4. wp_get_computed_layout  → verify styles are applied correctly
+5. wp_save                 → persist changes
+```
+
+### Design Thinking in Blocks
+
+Instead of thinking "I need a div with flexbox", think:
+- **Layout container?** → `core/group` with `layout: { type: "flex" }`
+- **Multi-column?** → `core/columns` with `core/column` children
+- **Hero with background?** → `core/cover` with overlay
+- **Buttons?** → `core/buttons` → `core/button` (parent-child)
+- **Spacing?** → Use theme spacing presets: `var(--wp--preset--spacing--60)`
+- **Colors?** → Use palette slugs: `backgroundColor: "primary"`
+
+### Example: Hero Section
+
+**Design intent**: Full-width hero with headline, subtext, CTA button, dark overlay.
+
+**Block-native approach** — directly generate the optimal structure:
+
+```jsonc
+wp_insert_blocks({
+  blocks: [{
+    name: "core/cover",
+    attributes: {
+      align: "full",
+      dimRatio: 60,
+      overlayColor: "contrast",
+      minHeight: 600,
+      minHeightUnit: "px",
+      layout: { type: "constrained" }
+    },
+    innerBlocks: [
+      {
+        name: "core/heading",
+        attributes: {
+          content: "AI tools built for your WordPress site",
+          level: 1,
+          textAlign: "center",
+          style: {
+            typography: { fontSize: "clamp(2.5rem, 5vw, 4rem)" }
+          }
+        }
+      },
+      {
+        name: "core/paragraph",
+        attributes: {
+          content: "Write better content and connect AI agents to your site.",
+          align: "center",
+          style: {
+            typography: { fontSize: "var(--wp--preset--font-size--large)" },
+            spacing: { margin: { top: "var(--wp--preset--spacing--30)" } }
+          }
+        }
+      },
+      {
+        name: "core/buttons",
+        attributes: { layout: { type: "flex", justifyContent: "center" } },
+        innerBlocks: [{
+          name: "core/button",
+          attributes: {
+            text: "Try the AI website builder",
+            backgroundColor: "primary",
+            style: {
+              border: { radius: "4px" },
+              spacing: { padding: { top: "12px", bottom: "12px", left: "24px", right: "24px" } }
+            }
+          }
+        }]
+      }
+    ]
+  }]
+})
+```
+
+### Using Theme Presets
+
+Always prefer theme presets over hardcoded values:
+
+```jsonc
+// ❌ Hardcoded (fragile, inconsistent)
+{ style: { color: { background: "#3858E9" } } }
+
+// ✅ Theme preset (consistent, themeable)
+{ backgroundColor: "primary" }
+
+// ❌ Hardcoded spacing
+{ style: { spacing: { padding: { top: "32px" } } } }
+
+// ✅ Theme preset spacing
+{ style: { spacing: { padding: { top: "var(--wp--preset--spacing--60)" } } } }
+```
+
+Check available presets with `wp_get_styles()`.
+
+### Common Layout Patterns
+
+**Centered content section:**
+```jsonc
+{
+  name: "core/group",
+  attributes: {
+    align: "full",
+    layout: { type: "constrained", contentSize: "800px" },
+    style: { spacing: { padding: { top: "var(--wp--preset--spacing--80)", bottom: "var(--wp--preset--spacing--80)" } } }
+  },
+  innerBlocks: [/* content */]
+}
+```
+
+**Horizontal flex row:**
+```jsonc
+{
+  name: "core/group",
+  attributes: {
+    layout: { type: "flex", flexWrap: "nowrap", justifyContent: "space-between", verticalAlignment: "center" }
+  },
+  innerBlocks: [/* items */]
+}
+```
+
+**Vertical stack:**
+```jsonc
+{
+  name: "core/group",
+  attributes: {
+    layout: { type: "flex", orientation: "vertical" },
+    style: { spacing: { blockGap: "var(--wp--preset--spacing--40)" } }
+  },
+  innerBlocks: [/* items */]
+}
+```
+
+**Responsive grid:**
+```jsonc
+{
+  name: "core/group",
+  attributes: {
+    layout: { type: "grid", minimumColumnWidth: "300px" }
+  },
+  innerBlocks: [/* items */]
+}
+```
+
+### Advanced Patterns
+
+**Card with image, title, description:**
+```jsonc
+{
+  name: "core/group",
+  attributes: {
+    style: {
+      border: { radius: "8px" },
+      color: { background: "var(--wp--preset--color--base)" },
+      shadow: "var(--wp--preset--shadow--md)"
+    }
+  },
+  innerBlocks: [
+    {
+      name: "core/image",
+      attributes: {
+        url: "https://...",
+        id: 123,  // media library ID for proper rendering
+        style: { border: { radius: { topLeft: "8px", topRight: "8px" } } }
+      }
+    },
+    {
+      name: "core/group",
+      attributes: {
+        style: { spacing: { padding: "var(--wp--preset--spacing--40)" } }
+      },
+      innerBlocks: [
+        { name: "core/heading", attributes: { content: "Card Title", level: 3 } },
+        { name: "core/paragraph", attributes: { content: "Card description..." } }
+      ]
+    }
+  ]
+}
+```
+
+**Feature grid (3 columns with icons):**
+```jsonc
+{
+  name: "core/columns",
+  attributes: { align: "wide" },
+  innerBlocks: [
+    {
+      name: "core/column",
+      innerBlocks: [
+        { name: "core/image", attributes: { url: "icon1.svg", width: 48, height: 48 } },
+        { name: "core/heading", attributes: { content: "Feature 1", level: 3 } },
+        { name: "core/paragraph", attributes: { content: "Description of feature 1." } }
+      ]
+    },
+    {
+      name: "core/column",
+      innerBlocks: [
+        { name: "core/image", attributes: { url: "icon2.svg", width: 48, height: 48 } },
+        { name: "core/heading", attributes: { content: "Feature 2", level: 3 } },
+        { name: "core/paragraph", attributes: { content: "Description of feature 2." } }
+      ]
+    },
+    {
+      name: "core/column",
+      innerBlocks: [
+        { name: "core/image", attributes: { url: "icon3.svg", width: 48, height: 48 } },
+        { name: "core/heading", attributes: { content: "Feature 3", level: 3 } },
+        { name: "core/paragraph", attributes: { content: "Description of feature 3." } }
+      ]
+    }
+  ]
+}
+```
+
+**Testimonial quote:**
+```jsonc
+{
+  name: "core/group",
+  attributes: {
+    backgroundColor: "tertiary",
+    style: {
+      spacing: { padding: "var(--wp--preset--spacing--60)" },
+      border: { radius: "12px" }
+    }
+  },
+  innerBlocks: [
+    {
+      name: "core/quote",
+      attributes: {
+        citation: "Jane Doe, CEO",
+        style: { typography: { fontSize: "var(--wp--preset--font-size--large)" } }
+      },
+      innerBlocks: [
+        { name: "core/paragraph", attributes: { content: "This product changed everything for our team." } }
+      ]
+    }
+  ]
+}
+```
+
+**Pricing table:**
+```jsonc
+{
+  name: "core/columns",
+  attributes: { align: "wide" },
+  innerBlocks: [
+    {
+      name: "core/column",
+      attributes: {
+        style: {
+          border: { width: "1px", style: "solid", color: "var(--wp--preset--color--contrast-2)" },
+          spacing: { padding: "var(--wp--preset--spacing--50)" }
+        }
+      },
+      innerBlocks: [
+        { name: "core/heading", attributes: { content: "Basic", level: 3, textAlign: "center" } },
+        { name: "core/paragraph", attributes: { content: "<strong>$9</strong>/month", align: "center" } },
+        { name: "core/list", attributes: {}, innerBlocks: [
+          { name: "core/list-item", attributes: { content: "Feature A" } },
+          { name: "core/list-item", attributes: { content: "Feature B" } }
+        ]},
+        { name: "core/buttons", attributes: { layout: { type: "flex", justifyContent: "center" } }, innerBlocks: [
+          { name: "core/button", attributes: { text: "Get Started" } }
+        ]}
+      ]
+    }
+    // ... more pricing columns
+  ]
+}
+```
+
+### Block Selection Guide
+
+| Design Element | Block Choice | Key Attributes |
+|----------------|--------------|----------------|
+| Background image + overlay | `core/cover` | `url`, `dimRatio`, `overlayColor` |
+| Image beside text | `core/media-text` | `mediaPosition`, `mediaWidth` |
+| Icon grid | `core/columns` or grid layout | Use `core/image` for icons |
+| Accordion/FAQ | `core/details` | `showContent` for default open |
+| Social links | `core/social-links` | Add `core/social-link` children |
+| Navigation menu | `core/navigation` | Links via `innerBlocks` or ref |
+| Blog post list | `core/query` | `query.postType`, `query.perPage` |
+
+---
+
+## HTML Import Workflow (For Migration)
+
+Use `wp_import_html` when converting **existing HTML/CSS** to blocks. This is useful for:
+- Migrating static HTML templates to block themes
+- Converting designs from other frameworks
+- Quick prototyping when you already have HTML
+
+**Note**: For new designs, prefer the block-native approach above.
 
 ```
 1. wp_open_document        → navigate to target template/page
