@@ -132,4 +132,15 @@ export interface Transport {
 
 	/** Export template as HTML */
 	exportTemplate: () => Promise< { html: string } >;
+
+	/** Create a new template */
+	createTemplate: ( args: {
+		slug: string;
+		title: string;
+		content?: string;
+	} ) => Promise< {
+		success: boolean;
+		templateId?: string;
+		message?: string;
+	} >;
 }

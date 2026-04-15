@@ -464,7 +464,40 @@ export const tools: ToolDef[] = [
 		},
 	},
 
-	// 16. wp_import_html
+	// 16. wp_create_template
+	{
+		name: 'wp_create_template',
+		description:
+			'Create a new custom template in the Site Editor. The template is saved to the database and immediately available.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				slug: {
+					type: 'string',
+					description:
+						'Template slug (e.g. "landing", "about"). Must be unique.',
+				},
+				title: {
+					type: 'string',
+					description: 'Human-readable title (e.g. "Landing Page")',
+				},
+				content: {
+					type: 'string',
+					description:
+						'Initial block markup content. If empty, creates a blank template.',
+				},
+			},
+			required: [ 'slug', 'title' ],
+		},
+		handler: async ( args, transport ) => {
+			const result = await transport.createTemplate(
+				args as { slug: string; title: string; content?: string }
+			);
+			return text( result );
+		},
+	},
+
+	// 17. wp_import_html
 	{
 		name: 'wp_import_html',
 		description:

@@ -609,4 +609,46 @@ export class CDPTransport implements Transport {
 			}`
 		);
 	}
+
+	async createTemplate( args: {
+		slug: string;
+		title: string;
+		content?: string;
+	} ): Promise< {
+		success: boolean;
+		templateId?: string;
+		message?: string;
+	} > {
+		return this.callInPage(
+			`async function(slug, title, content) {
+				try {
+					const coreDispatch = window.wp.data.dispatch("core");
+					const coreSelect = window.wp.data.select("core");
+
+					// Get current theme
+					const currentTheme = coreSelect.getCurrentTheme();
+					const themeSlug = currentTheme?.stylesheet || "twentytwentyfive";
+
+					// Create template via saveEntityRecord
+					const template = await coreDispatch.saveEntityRecord("postType", "wp_template", {
+						slug: slug,
+						title: title,
+						content: content || "",
+						status: "publish",
+						theme: themeSlug,
+					});
+
+					if (template && template.id) {
+						return { success: true, templateId: template.id, message: "Created template: " + slug };
+					}
+					return { success: false, message: "Failed to create template" };
+				} catch(e) {
+					return { success: false, message: e.message };
+				}
+			}`,
+			args.slug,
+			args.title,
+			args.content ?? ''
+		);
+	}
 }

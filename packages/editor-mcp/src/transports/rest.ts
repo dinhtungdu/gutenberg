@@ -214,6 +214,42 @@ export class RESTTransport implements Transport {
 		}
 		return { html: '' };
 	}
+
+	async createTemplate( args: {
+		slug: string;
+		title: string;
+		content?: string;
+	} ): Promise< {
+		success: boolean;
+		templateId?: string;
+		message?: string;
+	} > {
+		try {
+			interface TemplateResult {
+				id: string;
+			}
+			const template = await this.request< TemplateResult >(
+				'POST',
+				'/wp/v2/templates',
+				{
+					slug: args.slug,
+					title: args.title,
+					content: args.content || '',
+					status: 'publish',
+				}
+			);
+			return {
+				success: true,
+				templateId: template.id,
+				message: `Created template: ${ args.slug }`,
+			};
+		} catch ( e ) {
+			return {
+				success: false,
+				message: e instanceof Error ? e.message : String( e ),
+			};
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
