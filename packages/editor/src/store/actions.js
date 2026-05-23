@@ -712,18 +712,25 @@ export const resetEditorBlocks =
 	};
 
 /*
- * Returns an action object used in signalling that the post editor settings have been updated.
+ * Returns an action used in signalling that the post editor settings have been updated.
  *
  * @param {Object} settings Updated settings
- *
- * @return {Object} Action object
  */
-export function updateEditorSettings( settings ) {
-	return {
-		type: 'UPDATE_EDITOR_SETTINGS',
-		settings,
+export const updateEditorSettings =
+	( settings ) =>
+	( { dispatch, registry, select } ) => {
+		const nextSettings = {
+			...select.getEditorSettings(),
+			...settings,
+		};
+		dispatch( {
+			type: 'UPDATE_EDITOR_SETTINGS',
+			settings,
+		} );
+		unlock( registry.dispatch( coreStore ) ).receiveEditorSettings(
+			nextSettings
+		);
 	};
-}
 
 /**
  * Returns an action used to set the rendering mode of the post editor. We support multiple rendering modes:

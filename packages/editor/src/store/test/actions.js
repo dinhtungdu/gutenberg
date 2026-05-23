@@ -64,6 +64,37 @@ const getMethod = ( options ) =>
 	options.headers?.[ 'X-HTTP-Method-Override' ] || options.method || 'GET';
 
 describe( 'Post actions', () => {
+	describe( 'updateEditorSettings', () => {
+		it( 'syncs merged editor settings to core data', () => {
+			const registry = createRegistryWithStores();
+			registry.dispatch( editorStore ).updateEditorSettings( {
+				fixedPageTemplates: [
+					{ id: 42, templateSlug: 'archive-product' },
+				],
+			} );
+			registry.dispatch( editorStore ).updateEditorSettings( {
+				disableVisualRevisions: true,
+			} );
+
+			expect(
+				registry.select( editorStore ).getEditorSettings()
+			).toMatchObject( {
+				disableVisualRevisions: true,
+				fixedPageTemplates: [
+					{ id: 42, templateSlug: 'archive-product' },
+				],
+			} );
+			expect(
+				unlock( registry.select( coreStore ) ).getEditorSettings()
+			).toMatchObject( {
+				disableVisualRevisions: true,
+				fixedPageTemplates: [
+					{ id: 42, templateSlug: 'archive-product' },
+				],
+			} );
+		} );
+	} );
+
 	describe( 'updateDeviceTypeForViewportState', () => {
 		it( 'updates the editor device type for a viewport state', () => {
 			const registry = createRegistryWithStores();

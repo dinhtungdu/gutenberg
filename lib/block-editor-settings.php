@@ -6,6 +6,79 @@
  */
 
 /**
+ * Normalizes fixed page template definitions for editor settings.
+ *
+ * @param array $fixed_page_templates Fixed page template definitions.
+ *
+ * @return array Normalized fixed page template definitions.
+ */
+function gutenberg_normalize_fixed_page_templates( $fixed_page_templates ) {
+	if ( ! is_array( $fixed_page_templates ) ) {
+		return array();
+	}
+
+	$normalized_fixed_page_templates = array();
+	foreach ( $fixed_page_templates as $page_id => $fixed_page_template ) {
+		$template_slug = '';
+
+		if ( is_string( $fixed_page_template ) ) {
+			$page_id       = (int) $page_id;
+			$template_slug = sanitize_key( $fixed_page_template );
+		} elseif ( is_array( $fixed_page_template ) ) {
+			$page_id = isset( $fixed_page_template['id'] )
+				? (int) $fixed_page_template['id']
+				: (int) $page_id;
+			if ( isset( $fixed_page_template['template_slug'] ) ) {
+				$template_slug = sanitize_key( (string) $fixed_page_template['template_slug'] );
+			}
+		}
+
+		if ( $page_id > 0 && $template_slug ) {
+			$normalized_fixed_page_templates[ $page_id ] = array(
+				'id'           => $page_id,
+				'templateSlug' => $template_slug,
+			);
+		}
+	}
+
+	return array_values( $normalized_fixed_page_templates );
+}
+
+/**
+ * Returns pages that always use a specific block template.
+ *
+ * @return array Fixed page template definitions.
+ */
+function gutenberg_get_fixed_page_templates() {
+	$fixed_page_templates = array();
+	$posts_page_id        = (int) get_option( 'page_for_posts' );
+	if ( 'page' === get_option( 'show_on_front' ) && $posts_page_id > 0 ) {
+		$fixed_page_templates[] = array(
+			'id'            => $posts_page_id,
+			'template_slug' => 'home',
+		);
+	}
+
+	/**
+	 * Filters pages that always use a specific block template.
+	 *
+	 * These pages do not render their own post content on the front end, so the
+	 * editor treats their template as fixed. Each item may be an array with an
+	 * `id` and `template_slug`, or an associative entry of page ID => template slug.
+	 *
+	 * @since 23.3.0
+	 *
+	 * @param array $fixed_page_templates Fixed page template definitions.
+	 */
+	$fixed_page_templates = apply_filters(
+		'block_editor_fixed_page_templates',
+		$fixed_page_templates
+	);
+
+	return gutenberg_normalize_fixed_page_templates( $fixed_page_templates );
+}
+
+/**
  * Replaces core 'styles' and '__experimentalFeatures' block editor settings from
  * wordpress-develop/block-editor.php with the Gutenberg versions. Much of the
  * code is copied from get_block_editor_settings() in that file.
@@ -120,6 +193,8 @@ function gutenberg_get_block_editor_settings( $settings ) {
 	}
 
 	$settings['canEditCSS'] = current_user_can( 'edit_css' );
+
+	$settings['fixedPageTemplates'] = gutenberg_get_fixed_page_templates();
 
 	return $settings;
 }

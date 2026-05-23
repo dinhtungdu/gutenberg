@@ -200,7 +200,10 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 					select( coreStore );
 
 				const _mode = getRenderingMode();
-				const _defaultMode = getDefaultRenderingMode( post.type );
+				const _defaultMode = getDefaultRenderingMode(
+					post.type,
+					post.id
+				);
 				/**
 				 * To avoid content "flash", wait until rendering mode has been resolved.
 				 * This is important for the initial render of the editor.

@@ -150,6 +150,177 @@ interface SiteData {
 	page_for_posts?: string | number;
 }
 
+interface FixedPageTemplate {
+	id: EntityRecordKey;
+	templateSlug: string;
+}
+
+interface EditorSettings {
+	fixedPageTemplates?: FixedPageTemplate[];
+}
+
+interface PostTemplatePolicy {
+	isFixedTemplatePage: boolean;
+	fixedTemplateSlug?: string;
+	isFrontPage: boolean;
+}
+
+function getFallbackFixedPageTemplates( select: any ): FixedPageTemplate[] {
+	const postsPageId = unlock( select( STORE_NAME ) ).getPostsPageId();
+	return postsPageId ? [ { id: postsPageId, templateSlug: 'home' } ] : [];
+}
+
+function getFixedPageTemplates( select: any ): FixedPageTemplate[] {
+	const editorSettings = select(
+		STORE_NAME
+	).getEditorSettings() as EditorSettings | null;
+
+	// Once settings are loaded, they are the source of truth. This allows the
+	// `block_editor_fixed_page_templates` filter to remove the default posts page
+	// mapping by returning an empty array.
+	if ( Array.isArray( editorSettings?.fixedPageTemplates ) ) {
+		return editorSettings.fixedPageTemplates;
+	}
+
+	// Keep the legacy posts page behavior for callers that resolve templates
+	// before editor settings have loaded.
+	return getFallbackFixedPageTemplates( select );
+}
+
+function getFixedPageTemplate(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): FixedPageTemplate | null {
+	if ( postType !== 'page' || postId === undefined || postId === null ) {
+		return null;
+	}
+
+	return (
+		getFixedPageTemplates( select ).find(
+			( { id, templateSlug } ) =>
+				!! templateSlug && id.toString() === postId.toString()
+		) ?? null
+	);
+}
+
+function isStaticFrontPage(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): boolean {
+	const homepage = unlock( select( STORE_NAME ) ).getHomePage();
+	return (
+		postType === 'page' &&
+		homepage?.postType === 'page' &&
+		postId !== undefined &&
+		postId !== null &&
+		postId.toString() === homepage.postId
+	);
+}
+
+function getFrontPageTemplateId(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): EntityRecordKey | null | undefined {
+	if ( ! isStaticFrontPage( select, postType, postId ) ) {
+		return null;
+	}
+
+	// The /lookup endpoint cannot currently handle a lookup when a page is set
+	// as the front page. In that case, check if there is a front page template,
+	// otherwise fall back to the page template.
+	const templates = select( STORE_NAME ).getEntityRecords(
+		'postType',
+		'wp_template',
+		{
+			per_page: -1,
+		}
+	);
+	if ( ! templates ) {
+		return undefined;
+	}
+
+	return templates.find( ( { slug } ) => slug === 'front-page' )?.id ?? null;
+}
+
+function getTemplateSlugToCheck(
+	postType: string,
+	slug: string | undefined
+): string {
+	if ( slug ) {
+		return postType === 'page'
+			? `${ postType }-${ slug }`
+			: `single-${ postType }-${ slug }`;
+	}
+	return postType === 'page' ? 'page' : `single-${ postType }`;
+}
+
+function resolveDefaultTemplateIdForPost(
+	select: any,
+	postType: string,
+	postId: EntityRecordKey,
+	slug?: string
+): EntityRecordKey | undefined {
+	if ( ! unlock( select( STORE_NAME ) ).getHomePage() ) {
+		return undefined;
+	}
+
+	const fixedPageTemplate = getFixedPageTemplate( select, postType, postId );
+	if ( fixedPageTemplate ) {
+		return select( STORE_NAME ).getDefaultTemplateId( {
+			slug: fixedPageTemplate.templateSlug,
+		} );
+	}
+
+	const frontPageTemplateId = getFrontPageTemplateId(
+		select,
+		postType,
+		postId
+	);
+	if ( frontPageTemplateId || frontPageTemplateId === undefined ) {
+		return frontPageTemplateId;
+	}
+
+	return select( STORE_NAME ).getDefaultTemplateId( {
+		slug: getTemplateSlugToCheck( postType, slug ),
+	} );
+}
+
+export const getPostTemplatePolicy = createRegistrySelector(
+	( select ) =>
+		( _state, postType, postId ): PostTemplatePolicy => {
+			const fixedPageTemplate = getFixedPageTemplate(
+				select,
+				postType,
+				postId
+			);
+			const isFrontPage = isStaticFrontPage( select, postType, postId );
+
+			return {
+				isFixedTemplatePage: !! fixedPageTemplate,
+				fixedTemplateSlug: fixedPageTemplate?.templateSlug,
+				isFrontPage,
+			};
+		}
+);
+
+export const getDefaultTemplateIdForPost = createRegistrySelector(
+	( select ) => ( _state, postType, postId, slug ) => {
+		if ( ! postType || postId === undefined || postId === null ) {
+			return undefined;
+		}
+
+		return resolveDefaultTemplateIdForPost(
+			select,
+			postType,
+			postId,
+			slug
+		);
+	}
+);
+
 export const getHomePage = createRegistrySelector( ( select ) =>
 	createSelector(
 		() => {
@@ -210,40 +381,29 @@ export const getPostsPageId = createRegistrySelector( ( select ) => () => {
 
 export const getTemplateId = createRegistrySelector(
 	( select ) => ( state, postType, postId ) => {
-		const homepage = unlock( select( STORE_NAME ) ).getHomePage();
-
-		if ( ! homepage ) {
+		if ( ! unlock( select( STORE_NAME ) ).getHomePage() ) {
 			return;
 		}
 
-		// For the front page, we always use the front page template if existing.
-		if (
-			postType === 'page' &&
-			postType === homepage?.postType &&
-			postId.toString() === homepage?.postId
-		) {
-			// The /lookup endpoint cannot currently handle a lookup
-			// when a page is set as the front page, so specifically in
-			// that case, we want to check if there is a front page
-			// template, and instead of falling back to the home
-			// template, we want to fall back to the page template.
-			const templates = select( STORE_NAME ).getEntityRecords(
-				'postType',
-				'wp_template',
-				{
-					per_page: -1,
-				}
-			);
-			if ( ! templates ) {
-				return;
-			}
-			const id = templates.find( ( { slug } ) => slug === 'front-page' )
-				?.id;
-			if ( id ) {
-				return id;
-			}
-			// If no front page template is found, continue with the
-			// logic below (fetching the page template).
+		const fixedPageTemplate = getFixedPageTemplate(
+			select,
+			postType,
+			postId
+		);
+		if ( fixedPageTemplate ) {
+			return resolveDefaultTemplateIdForPost( select, postType, postId );
+		}
+
+		const frontPageTemplateId = getFrontPageTemplateId(
+			select,
+			postType,
+			postId
+		);
+		if ( frontPageTemplateId ) {
+			return frontPageTemplateId;
+		}
+		if ( frontPageTemplateId === undefined ) {
+			return;
 		}
 
 		const editedEntity = select( STORE_NAME ).getEditedEntityRecord(
@@ -253,13 +413,6 @@ export const getTemplateId = createRegistrySelector(
 		);
 		if ( ! editedEntity ) {
 			return;
-		}
-		const postsPageId = unlock( select( STORE_NAME ) ).getPostsPageId();
-		// Check if the current page is the posts page.
-		if ( postType === 'page' && postsPageId === postId.toString() ) {
-			return select( STORE_NAME ).getDefaultTemplateId( {
-				slug: 'home',
-			} );
 		}
 		// First see if the post/page has an assigned template and fetch it.
 		const currentTemplateSlug = editedEntity.template;
@@ -273,23 +426,13 @@ export const getTemplateId = createRegistrySelector(
 				return currentTemplate.id;
 			}
 		}
-		// If no template is assigned, use the default template.
-		let slugToCheck;
-		// In `draft` status we might not have a slug available, so we use the `single`
-		// post type templates slug(ex page, single-post, single-product etc..).
-		// Pages do not need the `single` prefix in the slug to be prioritized
-		// through template hierarchy.
-		if ( editedEntity.slug ) {
-			slugToCheck =
-				postType === 'page'
-					? `${ postType }-${ editedEntity.slug }`
-					: `single-${ postType }-${ editedEntity.slug }`;
-		} else {
-			slugToCheck = postType === 'page' ? 'page' : `single-${ postType }`;
-		}
-		return select( STORE_NAME ).getDefaultTemplateId( {
-			slug: slugToCheck,
-		} );
+
+		return resolveDefaultTemplateIdForPost(
+			select,
+			postType,
+			postId,
+			editedEntity.slug
+		);
 	}
 );
 

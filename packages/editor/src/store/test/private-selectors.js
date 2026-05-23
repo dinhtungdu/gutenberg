@@ -11,6 +11,7 @@ import {
 	getDefaultRenderingMode,
 	getPostBlocksByName,
 } from '../private-selectors';
+import { lock } from '../../lock-unlock';
 
 describe( 'getPostBlocksByName', () => {
 	const state = {
@@ -88,20 +89,26 @@ describe( 'getPostBlocksByName', () => {
 
 describe( 'getDefaultRenderingMode', () => {
 	function setupRegistry( {
+		fixedTemplatePage = false,
 		supportsEditor = true,
 		theme = 'twentytwentyfive',
 		renderingModes = null,
 	} = {} ) {
+		const coreSelectors = {
+			getPostType: () => ( {
+				supports: { editor: supportsEditor },
+			} ),
+			getCurrentTheme: () => ( { stylesheet: theme } ),
+			hasFinishedResolution: () => true,
+			getPostTemplatePolicy: () => ( {
+				isFixedTemplatePage: fixedTemplatePage,
+			} ),
+		};
+		lock( coreSelectors, coreSelectors );
 		getDefaultRenderingMode.registry = {
 			select: ( store ) => {
 				if ( store === coreStore ) {
-					return {
-						getPostType: () => ( {
-							supports: { editor: supportsEditor },
-						} ),
-						getCurrentTheme: () => ( { stylesheet: theme } ),
-						hasFinishedResolution: () => true,
-					};
+					return coreSelectors;
 				}
 				if ( store === preferencesStore ) {
 					return {
@@ -113,6 +120,25 @@ describe( 'getDefaultRenderingMode', () => {
 	}
 
 	describe( 'editor.default-mode post type support', () => {
+		it( 'uses template-locked for fixed template pages', () => {
+			setupRegistry( {
+				fixedTemplatePage: true,
+				renderingModes: {
+					twentytwentyfive: { page: 'post-only' },
+				},
+			} );
+			const state = {
+				editorSettings: {
+					defaultRenderingMode: 'post-only',
+					supportsTemplateMode: true,
+				},
+			};
+
+			expect( getDefaultRenderingMode( state, 'page', 42 ) ).toBe(
+				'template-locked'
+			);
+		} );
+
 		it( 'default-mode from post type support should be respected when no user preference is saved', () => {
 			setupRegistry( {
 				supportsEditor: [ { 'default-mode': 'template-locked' } ],

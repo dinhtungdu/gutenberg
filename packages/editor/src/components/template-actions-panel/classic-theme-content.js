@@ -26,6 +26,7 @@ import { store as preferencesStore } from '@wordpress/preferences';
  */
 import { store as editorStore } from '../../store';
 import CreateNewTemplateModal from '../post-template/create-new-template-modal';
+import { useAllowSwitchingTemplates } from '../post-template/hooks';
 
 export default function ClassicThemeContent() {
 	const templateId = useSelect(
@@ -33,6 +34,7 @@ export default function ClassicThemeContent() {
 		[]
 	);
 	const [ isCreateModalOpen, setIsCreateModalOpen ] = useState( false );
+	const allowSwitchingTemplate = useAllowSwitchingTemplates();
 	const {
 		onNavigateToEntityRecord,
 		canCreateTemplate,
@@ -65,8 +67,10 @@ export default function ClassicThemeContent() {
 		id: templateId,
 	} );
 
+	const canCreateBlockTemplate = canCreateTemplate && allowSwitchingTemplate;
+
 	// Path A: No block template and cannot create templates.
-	if ( ! templateId && ! canCreateTemplate ) {
+	if ( ! templateId && ! canCreateBlockTemplate ) {
 		return null;
 	}
 
@@ -145,7 +149,7 @@ export default function ClassicThemeContent() {
 								{ __( 'Edit' ) }
 							</Button>
 						) }
-						{ canCreateTemplate && (
+						{ canCreateBlockTemplate && (
 							<Button
 								className="editor-template-actions-panel__action"
 								__next40pxDefaultSize

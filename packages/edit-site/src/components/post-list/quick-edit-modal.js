@@ -42,21 +42,14 @@ export function QuickEditModal( {
 				return {
 					record: null,
 					hasFinishedResolution: true,
+					canSwitchTemplate: false,
 				};
 			}
 
 			const args = [ 'postType', postType, postId[ 0 ] ];
-
-			const { getHomePage, getPostsPageId } = unlock(
+			const { isFixedTemplatePage, isFrontPage } = unlock(
 				select( coreDataStore )
-			);
-			const singlePostId = String( postId[ 0 ] );
-			const isPostsPage =
-				singlePostId !== undefined && getPostsPageId() === singlePostId;
-			const isFrontPage =
-				singlePostId !== undefined &&
-				postType === 'page' &&
-				getHomePage()?.postId === singlePostId;
+			).getPostTemplatePolicy( postType, postId[ 0 ] );
 
 			return {
 				record: getEditedEntityRecord( ...args ),
@@ -64,7 +57,7 @@ export function QuickEditModal( {
 					'getEditedEntityRecord',
 					args
 				),
-				canSwitchTemplate: ! isPostsPage && ! isFrontPage,
+				canSwitchTemplate: ! isFixedTemplatePage && ! isFrontPage,
 			};
 		},
 		[ postType, postId, isBulk ]

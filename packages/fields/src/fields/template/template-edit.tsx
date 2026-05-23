@@ -14,8 +14,11 @@ import { __ } from '@wordpress/i18n';
  */
 import { getItemTitle } from '../../actions/utils';
 import type { BasePost } from '../../types';
-import { useDefaultTemplateLabel, useTemplateFieldMode } from './hooks';
-import { unlock } from '../../lock-unlock';
+import {
+	useCanSwitchTemplate,
+	useDefaultTemplateLabel,
+	useTemplateFieldMode,
+} from './hooks';
 
 type TemplateEditComponentProps = Omit<
 	DataFormControlProps< BasePost >,
@@ -45,20 +48,7 @@ function ClassicTemplateEdit( {
 			} ) ),
 		[ data ]
 	);
-	const canSwitchTemplate = useSelect(
-		( select ) => {
-			const { getHomePage, getPostsPageId } = unlock(
-				select( coreStore )
-			);
-			const singlePostId = String( postId );
-			const isPostsPage = getPostsPageId() === singlePostId;
-			const isFrontPage =
-				data.type === 'page' && getHomePage()?.postId === singlePostId;
-
-			return ! isPostsPage && ! isFrontPage;
-		},
-		[ postId, data.type ]
-	);
+	const canSwitchTemplate = useCanSwitchTemplate( data.type, postId );
 	return (
 		<SelectControl
 			__next40pxDefaultSize
@@ -81,33 +71,19 @@ function BlockThemeTemplateEdit( {
 	const postId =
 		typeof data.id === 'number' ? data.id : parseInt( data.id, 10 );
 	const slug = data.slug;
-	const { templates, canSwitchTemplate } = useSelect(
-		( select ) => {
-			const allTemplates =
-				select( coreStore ).getEntityRecords< WpTemplate >(
-					'postType',
-					'wp_template',
-					{
-						per_page: -1,
-						post_type: postType,
-					}
-				) ?? EMPTY_ARRAY;
-
-			const { getHomePage, getPostsPageId } = unlock(
-				select( coreStore )
-			);
-			const singlePostId = String( postId );
-			const isPostsPage = getPostsPageId() === singlePostId;
-			const isFrontPage =
-				postType === 'page' && getHomePage()?.postId === singlePostId;
-
-			return {
-				templates: allTemplates,
-				canSwitchTemplate: ! isPostsPage && ! isFrontPage,
-			};
-		},
-		[ postId, postType ]
+	const templates = useSelect(
+		( select ) =>
+			select( coreStore ).getEntityRecords< WpTemplate >(
+				'postType',
+				'wp_template',
+				{
+					per_page: -1,
+					post_type: postType,
+				}
+			) ?? EMPTY_ARRAY,
+		[ postType ]
 	);
+	const canSwitchTemplate = useCanSwitchTemplate( postType, postId );
 	const defaultTemplateLabel = useDefaultTemplateLabel(
 		postType,
 		postId,
