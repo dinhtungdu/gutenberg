@@ -148,6 +148,44 @@ describe( 'fixed page templates', () => {
 		} );
 	} );
 
+	it( 'prefers a fixed template over the front page template', () => {
+		const getEntityRecords = jest.fn( () => [
+			{ id: 'theme//front-page', slug: 'front-page' },
+		] );
+		const selectors = {
+			getFixedPageTemplateDefinitions: () => [
+				{ id: 42, templateSlug: 'archive-product' },
+			],
+			getHomePage: () => ( { postType: 'page', postId: '42' } ),
+			getPostsPageId: () => null,
+			getDefaultTemplateId: ( { slug }: { slug: string } ) =>
+				`theme//${ slug }`,
+			getEntityRecords,
+		};
+		lock( selectors, selectors );
+		const registry = {
+			select: ( store: string ) => {
+				if ( store === STORE_NAME ) {
+					return selectors;
+				}
+			},
+		};
+		( getDefaultTemplateIdForPost as any ).registry = registry;
+		( getPostTemplatePolicy as any ).registry = registry;
+		( getTemplateId as any ).registry = registry;
+
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual(
+			FIXED_TEMPLATE_POLICY
+		);
+		expect( getTemplateId( {} as any, 'page', 42 ) ).toBe(
+			'theme//archive-product'
+		);
+		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
+			'theme//archive-product'
+		);
+		expect( getEntityRecords ).not.toHaveBeenCalled();
+	} );
+
 	it( 'uses the fixed template slug when resolving template IDs', () => {
 		const selectors = {
 			getFixedPageTemplateDefinitions: () => [

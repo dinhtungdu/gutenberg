@@ -716,26 +716,12 @@ export const resetEditorBlocks =
  *
  * @param {Object} settings Updated settings
  */
-export const updateEditorSettings =
-	( settings ) =>
-	( { dispatch, registry } ) => {
-		registry.batch( () => {
-			dispatch( {
-				type: 'UPDATE_EDITOR_SETTINGS',
-				settings,
-			} );
-			if (
-				Object.prototype.hasOwnProperty.call(
-					settings,
-					'fixedPageTemplates'
-				)
-			) {
-				unlock(
-					registry.dispatch( coreStore )
-				).receiveFixedPageTemplates( settings.fixedPageTemplates );
-			}
-		} );
+export function updateEditorSettings( settings ) {
+	return {
+		type: 'UPDATE_EDITOR_SETTINGS',
+		settings,
 	};
+}
 
 /**
  * Returns an action used to set the rendering mode of the post editor. We support multiple rendering modes:

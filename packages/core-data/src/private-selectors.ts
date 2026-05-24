@@ -298,10 +298,6 @@ function resolveDefaultTemplateIdForPost(
 	postId: EntityRecordKey,
 	slug?: string
 ): EntityRecordKey | undefined {
-	if ( ! unlock( select( STORE_NAME ) ).getHomePage() ) {
-		return undefined;
-	}
-
 	const fixedPageTemplate = getFixedPageTemplate( select, postType, postId );
 	if ( fixedPageTemplate === undefined ) {
 		return undefined;
@@ -334,24 +330,41 @@ export const getPostTemplatePolicy = createRegistrySelector(
 				postType,
 				postId
 			);
+			if ( fixedPageTemplate === undefined ) {
+				return RESOLVING_POST_TEMPLATE_POLICY;
+			}
+			if ( fixedPageTemplate ) {
+				return getPostTemplatePolicyFromFacts( {
+					isFixedTemplatePage: true,
+					isFrontPage: false,
+					hasFrontPageTemplate: false,
+				} );
+			}
+
 			const isFrontPage = isStaticFrontPage( select, postType, postId );
+			if ( isFrontPage === undefined ) {
+				return RESOLVING_POST_TEMPLATE_POLICY;
+			}
+			if ( ! isFrontPage ) {
+				return getPostTemplatePolicyFromFacts( {
+					isFixedTemplatePage: false,
+					isFrontPage: false,
+					hasFrontPageTemplate: false,
+				} );
+			}
+
 			const frontPageTemplateId = getFrontPageTemplateId(
 				select,
 				postType,
 				postId
 			);
-
-			if (
-				fixedPageTemplate === undefined ||
-				isFrontPage === undefined ||
-				frontPageTemplateId === undefined
-			) {
+			if ( frontPageTemplateId === undefined ) {
 				return RESOLVING_POST_TEMPLATE_POLICY;
 			}
 
 			return getPostTemplatePolicyFromFacts( {
-				isFixedTemplatePage: !! fixedPageTemplate,
-				isFrontPage,
+				isFixedTemplatePage: false,
+				isFrontPage: true,
 				hasFrontPageTemplate: !! frontPageTemplateId,
 			} );
 		}
@@ -432,10 +445,6 @@ export const getPostsPageId = createRegistrySelector( ( select ) => () => {
 
 export const getTemplateId = createRegistrySelector(
 	( select ) => ( state, postType, postId ) => {
-		if ( ! unlock( select( STORE_NAME ) ).getHomePage() ) {
-			return;
-		}
-
 		const fixedPageTemplate = getFixedPageTemplate(
 			select,
 			postType,

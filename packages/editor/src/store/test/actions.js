@@ -65,7 +65,7 @@ const getMethod = ( options ) =>
 
 describe( 'Post actions', () => {
 	describe( 'updateEditorSettings', () => {
-		it( 'syncs fixed page templates to core data without leaking editor settings', () => {
+		it( 'updates editor settings without mutating core data fixed templates', () => {
 			const registry = createRegistryWithStores();
 			registry.dispatch( editorStore ).updateEditorSettings( {
 				disableVisualRevisions: true,
@@ -101,7 +101,7 @@ describe( 'Post actions', () => {
 				unlock(
 					registry.select( coreStore )
 				).getFixedPageTemplateDefinitions()
-			).toEqual( [ { id: 42, templateSlug: 'archive-product' } ] );
+			).toBeUndefined();
 			expect(
 				unlock( registry.select( coreStore ) ).getEditorSettings()
 			).toBeNull();

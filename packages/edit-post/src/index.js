@@ -158,6 +158,9 @@ export function initializeEditor(
 
 	// Make settings available synchronously to selectors used during the first render.
 	dispatch( editorStore ).updateEditorSettings( settings );
+	unlock( dispatch( coreDataStore ) ).receiveFixedPageTemplates(
+		settings.fixedPageTemplates
+	);
 
 	// Drive the resolvers whose data `createPreloadingMiddleware`
 	// already has cached so every metadata entry they touch is
