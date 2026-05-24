@@ -10,19 +10,13 @@
 /**
  * Registers a fixed template page for e2e tests.
  *
- * @param array $fixed_page_templates Fixed page template definitions.
- * @return array Fixed page template definitions.
+ * @param Gutenberg_Fixed_Page_Template_Registry $registry Fixed page template registry.
  */
-function gutenberg_test_fixed_page_templates( $fixed_page_templates ) {
+function gutenberg_test_fixed_page_templates( $registry ) {
 	$fixed_page = get_page_by_path( 'fixed-template-page' );
 
 	if ( $fixed_page instanceof WP_Post ) {
-		$fixed_page_templates[] = array(
-			'id'            => $fixed_page->ID,
-			'template_slug' => 'index',
-		);
+		$registry->register( $fixed_page->ID, 'index' );
 	}
-
-	return $fixed_page_templates;
 }
-add_filter( 'block_editor_fixed_page_templates', 'gutenberg_test_fixed_page_templates' );
+add_action( 'block_editor_register_fixed_page_templates', 'gutenberg_test_fixed_page_templates' );

@@ -175,9 +175,8 @@ function getFixedPageTemplates( select: any ): FixedPageTemplate[] {
 		STORE_NAME
 	).getEditorSettings() as EditorSettings | null;
 
-	// Once settings are loaded, they are the source of truth. This allows the
-	// `block_editor_fixed_page_templates` filter to remove the default posts page
-	// mapping by returning an empty array.
+	// Once settings are loaded, they are the source of truth. The fallback only
+	// preserves the legacy posts page behavior before editor settings load.
 	if ( Array.isArray( editorSettings?.fixedPageTemplates ) ) {
 		return editorSettings.fixedPageTemplates;
 	}

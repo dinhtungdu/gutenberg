@@ -68,7 +68,7 @@ describe( 'fixed page templates', () => {
 		} );
 	} );
 
-	it( 'does not re-add the posts page after editor settings resolve', () => {
+	it( 'uses loaded editor settings without the posts page fallback', () => {
 		setupFixedPageTemplateRegistry( { fixedPageTemplates: [] }, '42' );
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
