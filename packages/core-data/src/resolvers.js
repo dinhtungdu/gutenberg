@@ -1321,17 +1321,31 @@ export const getEntitiesConfig =
 		}
 	};
 
+async function fetchBlockEditorSettings( dispatch ) {
+	const settings = await apiFetch( {
+		path: '/wp-block-editor/v1/settings',
+	} );
+	dispatch.receiveEditorSettings( settings );
+	dispatch.receiveFixedPageTemplates( settings.fixedPageTemplates );
+	return settings;
+}
+
 /**
  * Requests editor settings from the REST API.
  */
 export const getEditorSettings =
 	() =>
 	async ( { dispatch } ) => {
-		const settings = await apiFetch( {
-			path: '/wp-block-editor/v1/settings',
-		} );
-		dispatch.receiveEditorSettings( settings );
-		dispatch.receiveFixedPageTemplates( settings.fixedPageTemplates );
+		await fetchBlockEditorSettings( dispatch );
+	};
+
+/**
+ * Requests fixed page template definitions from the REST API.
+ */
+export const getFixedPageTemplateDefinitions =
+	() =>
+	async ( { dispatch } ) => {
+		await fetchBlockEditorSettings( dispatch );
 	};
 
 /**

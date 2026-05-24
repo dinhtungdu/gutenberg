@@ -1,4 +1,10 @@
 /**
+ * WordPress dependencies
+ */
+import triggerFetch from '@wordpress/api-fetch';
+import { createRegistry } from '@wordpress/data';
+
+/**
  * Internal dependencies
  */
 import {
@@ -7,7 +13,10 @@ import {
 	getTemplateId,
 } from '../private-selectors';
 import { STORE_NAME } from '../name';
-import { lock } from '../lock-unlock';
+import { lock, unlock } from '../lock-unlock';
+import { store as coreDataStore } from '../index';
+
+jest.mock( '@wordpress/api-fetch' );
 
 const SWITCHABLE_POLICY = {
 	isResolving: false,
@@ -34,6 +43,10 @@ const RESOLVING_POLICY = {
 };
 
 describe( 'fixed page templates', () => {
+	beforeEach( () => {
+		( triggerFetch as jest.Mock ).mockReset();
+	} );
+
 	function setupFixedPageTemplateRegistry( {
 		fixedPageTemplates,
 		postsPageId = null,
@@ -65,6 +78,30 @@ describe( 'fixed page templates', () => {
 		( getDefaultTemplateIdForPost as any ).registry = registry;
 		( getPostTemplatePolicy as any ).registry = registry;
 	}
+
+	it( 'resolves fixed page template definitions through their resolver', async () => {
+		const registry = createRegistry();
+		registry.register( coreDataStore );
+		( triggerFetch as jest.Mock ).mockResolvedValue( {
+			fixedPageTemplates: [ { id: 42, templateSlug: 'archive-product' } ],
+		} );
+
+		await expect(
+			unlock(
+				registry.resolveSelect( coreDataStore )
+			).getFixedPageTemplateDefinitions()
+		).resolves.toEqual( [ { id: 42, templateSlug: 'archive-product' } ] );
+
+		expect( triggerFetch ).toHaveBeenCalledWith( {
+			path: '/wp-block-editor/v1/settings',
+		} );
+		expect(
+			unlock( registry.select( coreDataStore ) ).getPostTemplatePolicy(
+				'page',
+				42
+			)
+		).toEqual( FIXED_TEMPLATE_POLICY );
+	} );
 
 	it( 'resolves fixed page template settings by page ID', () => {
 		setupFixedPageTemplateRegistry( {
