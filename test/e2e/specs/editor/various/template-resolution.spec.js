@@ -47,6 +47,71 @@ test.describe( 'Template resolution', () => {
 		);
 	} );
 
+	test.describe( 'fixed page templates', () => {
+		test.beforeAll( async ( { requestUtils } ) => {
+			await requestUtils.activatePlugin(
+				'gutenberg-test-fixed-page-templates'
+			);
+		} );
+
+		test.beforeEach( async ( { requestUtils } ) => {
+			await requestUtils.resetPreferences();
+		} );
+
+		test.afterAll( async ( { requestUtils } ) => {
+			await requestUtils.deactivatePlugin(
+				'gutenberg-test-fixed-page-templates'
+			);
+		} );
+
+		test( 'locks template mode and template switching controls', async ( {
+			page,
+			admin,
+			editor,
+			requestUtils,
+		} ) => {
+			const fixedPage = await requestUtils.createPage( {
+				title: 'Fixed Template Page',
+				slug: 'fixed-template-page',
+				status: 'publish',
+			} );
+
+			await admin.editPost( fixedPage.id );
+
+			await expect
+				.poll( async () =>
+					page.evaluate( () =>
+						window.wp.data
+							.select( 'core/editor' )
+							.getRenderingMode()
+					)
+				)
+				.toBe( 'template-locked' );
+
+			await editor.openDocumentSettingsSidebar();
+			const templateOptionsButton = page
+				.getByRole( 'region', { name: 'Editor settings' } )
+				.getByRole( 'button', { name: 'Template options' } );
+			await expect( templateOptionsButton ).toHaveText( 'Index' );
+
+			await templateOptionsButton.click();
+			await expect(
+				page.getByRole( 'menuitemcheckbox', {
+					name: 'Show template',
+				} )
+			).toHaveCount( 0 );
+			await expect(
+				page.getByRole( 'menuitem', { name: 'Create new template' } )
+			).toHaveCount( 0 );
+			await expect(
+				page.getByRole( 'menuitem', { name: 'Use default template' } )
+			).toHaveCount( 0 );
+			await expect(
+				page.getByRole( 'menuitem', { name: 'Change template' } )
+			).toBeDisabled();
+		} );
+	} );
+
 	test.describe( '`page_for_posts` setting', () => {
 		test( 'Post editor proper template resolution', async ( {
 			page,
