@@ -723,13 +723,15 @@ export const updateEditorSettings =
 			...select.getEditorSettings(),
 			...settings,
 		};
-		dispatch( {
-			type: 'UPDATE_EDITOR_SETTINGS',
-			settings,
+		registry.batch( () => {
+			dispatch( {
+				type: 'UPDATE_EDITOR_SETTINGS',
+				settings,
+			} );
+			unlock( registry.dispatch( coreStore ) ).receiveEditorSettings(
+				nextSettings
+			);
 		} );
-		unlock( registry.dispatch( coreStore ) ).receiveEditorSettings(
-			nextSettings
-		);
 	};
 
 /**

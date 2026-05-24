@@ -38,12 +38,10 @@ describe( 'fixed page templates', () => {
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
 			isFixedTemplatePage: true,
-			fixedTemplateSlug: 'archive-product',
 			isFrontPage: false,
 		} );
 		expect( getPostTemplatePolicy( {} as any, 'post', 42 ) ).toEqual( {
 			isFixedTemplatePage: false,
-			fixedTemplateSlug: undefined,
 			isFrontPage: false,
 		} );
 	} );
@@ -53,7 +51,6 @@ describe( 'fixed page templates', () => {
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
 			isFixedTemplatePage: false,
-			fixedTemplateSlug: undefined,
 			isFrontPage: false,
 		} );
 	} );
@@ -63,7 +60,6 @@ describe( 'fixed page templates', () => {
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
 			isFixedTemplatePage: true,
-			fixedTemplateSlug: 'home',
 			isFrontPage: false,
 		} );
 	} );
@@ -73,7 +69,6 @@ describe( 'fixed page templates', () => {
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
 			isFixedTemplatePage: false,
-			fixedTemplateSlug: undefined,
 			isFrontPage: false,
 		} );
 	} );
@@ -85,7 +80,6 @@ describe( 'fixed page templates', () => {
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
 			isFixedTemplatePage: true,
-			fixedTemplateSlug: 'archive-product',
 			isFrontPage: false,
 		} );
 	} );

@@ -161,7 +161,6 @@ interface EditorSettings {
 
 interface PostTemplatePolicy {
 	isFixedTemplatePage: boolean;
-	fixedTemplateSlug?: string;
 	isFrontPage: boolean;
 }
 
@@ -299,7 +298,6 @@ export const getPostTemplatePolicy = createRegistrySelector(
 
 			return {
 				isFixedTemplatePage: !! fixedPageTemplate,
-				fixedTemplateSlug: fixedPageTemplate?.templateSlug,
 				isFrontPage,
 			};
 		}

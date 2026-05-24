@@ -43,20 +43,10 @@ export function useCanToggleTemplateMode() {
 }
 
 export function useAllowSwitchingTemplates() {
-	const { postType, postId } = useEditedPostContext();
-	const { isFixedTemplatePage } = usePostTemplatePolicy();
+	const { isFixedTemplatePage, isFrontPage } = usePostTemplatePolicy();
 	return useSelect(
 		( select ) => {
-			const { canUser, getEntityRecord, getEntityRecords } =
-				select( coreStore );
-			const siteSettings = canUser( 'read', {
-				kind: 'root',
-				name: 'site',
-			} )
-				? getEntityRecord( 'root', 'site' )
-				: undefined;
-			const isFrontPage =
-				postType === 'page' && +postId === siteSettings?.page_on_front;
+			const { getEntityRecords } = select( coreStore );
 			// If current page is set front page, we also need
 			// to check if the current theme has a template for it. If not
 			const templates = isFrontPage
@@ -69,7 +59,7 @@ export function useAllowSwitchingTemplates() {
 				!! templates?.some( ( { slug } ) => slug === 'front-page' );
 			return ! isFixedTemplatePage && ! hasFrontPage;
 		},
-		[ isFixedTemplatePage, postId, postType ]
+		[ isFixedTemplatePage, isFrontPage ]
 	);
 }
 
