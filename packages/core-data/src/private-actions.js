@@ -149,6 +149,20 @@ export function receiveEditorSettings( settings ) {
 }
 
 /**
+ * Returns an action object used to receive fixed page templates.
+ *
+ * @param {Array} fixedPageTemplates Fixed page templates.
+ *
+ * @return {Object} Action object.
+ */
+export function receiveFixedPageTemplates( fixedPageTemplates ) {
+	return {
+		type: 'RECEIVE_FIXED_PAGE_TEMPLATES',
+		fixedPageTemplates,
+	};
+}
+
+/**
  * Returns an action object used to receive editor assets.
  *
  * @param {Object} assets Editor assets object.

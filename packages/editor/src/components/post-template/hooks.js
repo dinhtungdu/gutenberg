@@ -34,33 +34,16 @@ export function usePostTemplatePolicy() {
 	);
 }
 
-export function useIsFixedTemplatePage() {
-	return usePostTemplatePolicy().isFixedTemplatePage;
-}
-
 export function useCanToggleTemplateMode() {
-	return ! usePostTemplatePolicy().isFixedTemplatePage;
+	return usePostTemplatePolicy().canToggleTemplateMode;
 }
 
 export function useAllowSwitchingTemplates() {
-	const { isFixedTemplatePage, isFrontPage } = usePostTemplatePolicy();
-	return useSelect(
-		( select ) => {
-			const { getEntityRecords } = select( coreStore );
-			// If current page is set front page, we also need
-			// to check if the current theme has a template for it. If not
-			const templates = isFrontPage
-				? getEntityRecords( 'postType', 'wp_template', {
-						per_page: -1,
-				  } )
-				: [];
-			const hasFrontPage =
-				isFrontPage &&
-				!! templates?.some( ( { slug } ) => slug === 'front-page' );
-			return ! isFixedTemplatePage && ! hasFrontPage;
-		},
-		[ isFixedTemplatePage, isFrontPage ]
-	);
+	return usePostTemplatePolicy().canSwitchTemplate;
+}
+
+export function useShouldShowPostContentInfo() {
+	return usePostTemplatePolicy().shouldShowPostContentInfo;
 }
 
 function useTemplates( postType ) {

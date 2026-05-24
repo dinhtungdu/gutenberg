@@ -648,6 +648,51 @@ export function editorSettings( state = null, action ) {
 	return state;
 }
 
+function normalizeFixedPageTemplates( templates ) {
+	if ( ! Array.isArray( templates ) ) {
+		return [];
+	}
+
+	const seenPageIds = new Set();
+	return templates.reduce( ( normalized, fixedPageTemplate ) => {
+		const pageId = Number( fixedPageTemplate?.id );
+		const rawTemplateSlug = fixedPageTemplate?.templateSlug;
+		const templateSlug =
+			typeof rawTemplateSlug === 'string' ? rawTemplateSlug.trim() : '';
+		if ( ! Number.isInteger( pageId ) || pageId <= 0 || ! templateSlug ) {
+			return normalized;
+		}
+
+		const normalizedPageId = pageId.toString();
+		if ( seenPageIds.has( normalizedPageId ) ) {
+			return normalized;
+		}
+		seenPageIds.add( normalizedPageId );
+
+		normalized.push( {
+			id: pageId,
+			templateSlug,
+		} );
+		return normalized;
+	}, [] );
+}
+
+/**
+ * Reducer managing fixed page templates.
+ *
+ * @param {Array|undefined} state  Current state.
+ * @param {Object}          action Action object.
+ *
+ * @return {Array|undefined} Updated state.
+ */
+export function fixedPageTemplates( state = undefined, action ) {
+	switch ( action.type ) {
+		case 'RECEIVE_FIXED_PAGE_TEMPLATES':
+			return normalizeFixedPageTemplates( action.fixedPageTemplates );
+	}
+	return state;
+}
+
 /**
  * Reducer managing editor assets.
  *
@@ -761,6 +806,7 @@ export default combineReducers( {
 	defaultTemplates,
 	registeredPostMeta,
 	editorSettings,
+	fixedPageTemplates,
 	editorAssets,
 	syncConnectionStatuses,
 	collaborationSupported,

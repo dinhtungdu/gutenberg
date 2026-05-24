@@ -9,15 +9,50 @@ import {
 import { STORE_NAME } from '../name';
 import { lock } from '../lock-unlock';
 
+const SWITCHABLE_POLICY = {
+	isResolving: false,
+	canToggleTemplateMode: true,
+	canSwitchTemplate: true,
+	canEditTemplateField: true,
+	shouldShowPostContentInfo: true,
+};
+
+const FIXED_TEMPLATE_POLICY = {
+	isResolving: false,
+	canToggleTemplateMode: false,
+	canSwitchTemplate: false,
+	canEditTemplateField: false,
+	shouldShowPostContentInfo: false,
+};
+
+const RESOLVING_POLICY = {
+	isResolving: true,
+	canToggleTemplateMode: false,
+	canSwitchTemplate: false,
+	canEditTemplateField: false,
+	shouldShowPostContentInfo: false,
+};
+
 describe( 'fixed page templates', () => {
-	function setupFixedPageTemplateRegistry(
-		editorSettings: object | null,
-		postsPageId: string | null = null
-	) {
+	function setupFixedPageTemplateRegistry( {
+		fixedPageTemplates,
+		postsPageId = null,
+		homePage = {},
+		templates = [],
+	}: {
+		fixedPageTemplates?: Array< {
+			id: number | string;
+			templateSlug: string;
+		} >;
+		postsPageId?: string | null;
+		homePage?: object | null;
+		templates?: Array< { id: string; slug: string } >;
+	} = {} ) {
 		const selectors = {
-			getEditorSettings: () => editorSettings,
-			getHomePage: () => ( {} ),
+			getFixedPageTemplateDefinitions: () => fixedPageTemplates,
+			getHomePage: () => homePage,
 			getPostsPageId: () => postsPageId,
+			getEntityRecords: () => templates,
 		};
 		lock( selectors, selectors );
 		const registry = {
@@ -36,61 +71,88 @@ describe( 'fixed page templates', () => {
 			fixedPageTemplates: [ { id: 42, templateSlug: 'archive-product' } ],
 		} );
 
-		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
-			isFixedTemplatePage: true,
-			isFrontPage: false,
-		} );
-		expect( getPostTemplatePolicy( {} as any, 'post', 42 ) ).toEqual( {
-			isFixedTemplatePage: false,
-			isFrontPage: false,
-		} );
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual(
+			FIXED_TEMPLATE_POLICY
+		);
+		expect( getPostTemplatePolicy( {} as any, 'post', 42 ) ).toEqual(
+			SWITCHABLE_POLICY
+		);
 	} );
 
-	it( 'uses an empty list while editor settings are unresolved', () => {
-		setupFixedPageTemplateRegistry( null );
+	it( 'reports resolving for pages while fixed page templates and homepage are unresolved', () => {
+		setupFixedPageTemplateRegistry( { homePage: null } );
 
-		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
-			isFixedTemplatePage: false,
-			isFrontPage: false,
-		} );
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual(
+			RESOLVING_POLICY
+		);
+		expect( getPostTemplatePolicy( {} as any, 'post', 42 ) ).toEqual(
+			SWITCHABLE_POLICY
+		);
 	} );
 
-	it( 'treats the posts page as a fixed home template before editor settings resolve', () => {
-		setupFixedPageTemplateRegistry( null, '42' );
+	it( 'reports resolving for pages before fixed page templates resolve', () => {
+		setupFixedPageTemplateRegistry();
 
-		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
-			isFixedTemplatePage: true,
-			isFrontPage: false,
-		} );
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual(
+			RESOLVING_POLICY
+		);
 	} );
 
-	it( 'uses loaded editor settings without the posts page fallback', () => {
-		setupFixedPageTemplateRegistry( { fixedPageTemplates: [] }, '42' );
+	it( 'treats the posts page as a fixed home template before fixed page templates resolve', () => {
+		setupFixedPageTemplateRegistry( { postsPageId: '42' } );
 
-		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
-			isFixedTemplatePage: false,
-			isFrontPage: false,
-		} );
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual(
+			FIXED_TEMPLATE_POLICY
+		);
 	} );
 
-	it( 'returns a policy for fixed template pages', () => {
+	it( 'uses loaded fixed page templates without the posts page fallback', () => {
 		setupFixedPageTemplateRegistry( {
-			fixedPageTemplates: [ { id: 42, templateSlug: 'archive-product' } ],
+			fixedPageTemplates: [],
+			postsPageId: '42',
+		} );
+
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual(
+			SWITCHABLE_POLICY
+		);
+	} );
+
+	it( 'prevents switching template fields for the front page', () => {
+		setupFixedPageTemplateRegistry( {
+			fixedPageTemplates: [],
+			homePage: { postType: 'page', postId: '42' },
 		} );
 
 		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
-			isFixedTemplatePage: true,
-			isFrontPage: false,
+			isResolving: false,
+			canToggleTemplateMode: true,
+			canSwitchTemplate: true,
+			canEditTemplateField: false,
+			shouldShowPostContentInfo: true,
+		} );
+	} );
+
+	it( 'prevents switching templates for the front page when a front page template exists', () => {
+		setupFixedPageTemplateRegistry( {
+			fixedPageTemplates: [],
+			homePage: { postType: 'page', postId: '42' },
+			templates: [ { id: 'theme//front-page', slug: 'front-page' } ],
+		} );
+
+		expect( getPostTemplatePolicy( {} as any, 'page', 42 ) ).toEqual( {
+			isResolving: false,
+			canToggleTemplateMode: true,
+			canSwitchTemplate: false,
+			canEditTemplateField: false,
+			shouldShowPostContentInfo: true,
 		} );
 	} );
 
 	it( 'uses the fixed template slug when resolving template IDs', () => {
 		const selectors = {
-			getEditorSettings: () => ( {
-				fixedPageTemplates: [
-					{ id: 42, templateSlug: 'archive-product' },
-				],
-			} ),
+			getFixedPageTemplateDefinitions: () => [
+				{ id: 42, templateSlug: 'archive-product' },
+			],
 			getHomePage: () => ( {} ),
 			getPostsPageId: () => null,
 			getDefaultTemplateId: ( { slug }: { slug: string } ) =>

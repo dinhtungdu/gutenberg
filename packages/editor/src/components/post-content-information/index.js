@@ -11,7 +11,7 @@ import { useMemo } from '@wordpress/element';
  * Internal dependencies
  */
 import { store as editorStore } from '../../store';
-import { useIsFixedTemplatePage } from '../post-template/hooks';
+import { useShouldShowPostContentInfo } from '../post-template/hooks';
 import {
 	TEMPLATE_POST_TYPE,
 	TEMPLATE_PART_POST_TYPE,
@@ -22,20 +22,20 @@ const AVERAGE_READING_RATE = 189;
 
 // This component renders the wordcount and reading time for the post.
 export default function PostContentInformation() {
-	const isFixedTemplatePage = useIsFixedTemplatePage();
+	const shouldShowPostContentInfo = useShouldShowPostContentInfo();
 	const postContent = useSelect(
 		( select ) => {
 			const { getEditedPostAttribute, getCurrentPostType } =
 				select( editorStore );
 			const postType = getCurrentPostType();
 			const showPostContentInfo =
-				! isFixedTemplatePage &&
+				shouldShowPostContentInfo &&
 				! [ TEMPLATE_POST_TYPE, TEMPLATE_PART_POST_TYPE ].includes(
 					postType
 				);
 			return showPostContentInfo && getEditedPostAttribute( 'content' );
 		},
-		[ isFixedTemplatePage ]
+		[ shouldShowPostContentInfo ]
 	);
 	return <PostContentInformationUI postContent={ postContent } />;
 }

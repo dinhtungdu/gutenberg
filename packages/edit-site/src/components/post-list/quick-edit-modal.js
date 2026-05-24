@@ -47,7 +47,7 @@ export function QuickEditModal( {
 			}
 
 			const args = [ 'postType', postType, postId[ 0 ] ];
-			const { isFixedTemplatePage, isFrontPage } = unlock(
+			const { canEditTemplateField } = unlock(
 				select( coreDataStore )
 			).getPostTemplatePolicy( postType, postId[ 0 ] );
 
@@ -57,7 +57,7 @@ export function QuickEditModal( {
 					'getEditedEntityRecord',
 					args
 				),
-				canSwitchTemplate: ! isFixedTemplatePage && ! isFrontPage,
+				canSwitchTemplate: canEditTemplateField,
 			};
 		},
 		[ postType, postId, isBulk ]

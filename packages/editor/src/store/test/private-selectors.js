@@ -89,7 +89,8 @@ describe( 'getPostBlocksByName', () => {
 
 describe( 'getDefaultRenderingMode', () => {
 	function setupRegistry( {
-		fixedTemplatePage = false,
+		canToggleTemplateMode = true,
+		isResolvingTemplatePolicy = false,
 		supportsEditor = true,
 		theme = 'twentytwentyfive',
 		renderingModes = null,
@@ -101,7 +102,8 @@ describe( 'getDefaultRenderingMode', () => {
 			getCurrentTheme: () => ( { stylesheet: theme } ),
 			hasFinishedResolution: () => true,
 			getPostTemplatePolicy: () => ( {
-				isFixedTemplatePage: fixedTemplatePage,
+				isResolving: isResolvingTemplatePolicy,
+				canToggleTemplateMode,
 			} ),
 		};
 		lock( coreSelectors, coreSelectors );
@@ -120,9 +122,9 @@ describe( 'getDefaultRenderingMode', () => {
 	}
 
 	describe( 'editor.default-mode post type support', () => {
-		it( 'uses template-locked for fixed template pages', () => {
+		it( 'uses template-locked for pages that cannot toggle template mode', () => {
 			setupRegistry( {
-				fixedTemplatePage: true,
+				canToggleTemplateMode: false,
 				renderingModes: {
 					twentytwentyfive: { page: 'post-only' },
 				},
@@ -137,6 +139,22 @@ describe( 'getDefaultRenderingMode', () => {
 			expect( getDefaultRenderingMode( state, 'page', 42 ) ).toBe(
 				'template-locked'
 			);
+		} );
+
+		it( 'waits while template policy is resolving', () => {
+			setupRegistry( {
+				isResolvingTemplatePolicy: true,
+			} );
+			const state = {
+				editorSettings: {
+					defaultRenderingMode: 'post-only',
+					supportsTemplateMode: true,
+				},
+			};
+
+			expect(
+				getDefaultRenderingMode( state, 'page', 42 )
+			).toBeUndefined();
 		} );
 
 		it( 'default-mode from post type support should be respected when no user preference is saved', () => {

@@ -155,47 +155,77 @@ interface FixedPageTemplate {
 	templateSlug: string;
 }
 
-interface EditorSettings {
-	fixedPageTemplates?: FixedPageTemplate[];
+interface PostTemplatePolicy {
+	isResolving: boolean;
+	canToggleTemplateMode: boolean;
+	canSwitchTemplate: boolean;
+	canEditTemplateField: boolean;
+	shouldShowPostContentInfo: boolean;
 }
 
-interface PostTemplatePolicy {
+const RESOLVING_POST_TEMPLATE_POLICY: PostTemplatePolicy = {
+	isResolving: true,
+	canToggleTemplateMode: false,
+	canSwitchTemplate: false,
+	canEditTemplateField: false,
+	shouldShowPostContentInfo: false,
+};
+
+function getPostTemplatePolicyFromFacts( {
+	isFixedTemplatePage,
+	isFrontPage,
+	hasFrontPageTemplate,
+}: {
 	isFixedTemplatePage: boolean;
 	isFrontPage: boolean;
+	hasFrontPageTemplate: boolean;
+} ): PostTemplatePolicy {
+	const canSwitchTemplate = ! isFixedTemplatePage && ! hasFrontPageTemplate;
+	return {
+		isResolving: false,
+		canToggleTemplateMode: ! isFixedTemplatePage,
+		canSwitchTemplate,
+		canEditTemplateField: ! isFixedTemplatePage && ! isFrontPage,
+		shouldShowPostContentInfo: ! isFixedTemplatePage,
+	};
 }
 
-function getFallbackFixedPageTemplates( select: any ): FixedPageTemplate[] {
-	const postsPageId = unlock( select( STORE_NAME ) ).getPostsPageId();
-	return postsPageId ? [ { id: postsPageId, templateSlug: 'home' } ] : [];
-}
-
-function getFixedPageTemplates( select: any ): FixedPageTemplate[] {
-	const editorSettings = select(
-		STORE_NAME
-	).getEditorSettings() as EditorSettings | null;
-
-	// Once settings are loaded, they are the source of truth. The fallback only
-	// preserves the legacy posts page behavior before editor settings load.
-	if ( Array.isArray( editorSettings?.fixedPageTemplates ) ) {
-		return editorSettings.fixedPageTemplates;
+function getFallbackFixedPageTemplate(
+	select: any,
+	postId: EntityRecordKey
+): FixedPageTemplate | undefined {
+	if ( ! unlock( select( STORE_NAME ) ).getHomePage() ) {
+		return undefined;
 	}
 
-	// Keep the legacy posts page behavior for callers that resolve templates
-	// before editor settings have loaded.
-	return getFallbackFixedPageTemplates( select );
+	const postsPageId = unlock( select( STORE_NAME ) ).getPostsPageId();
+	return postsPageId && postsPageId === postId.toString()
+		? { id: postsPageId, templateSlug: 'home' }
+		: undefined;
+}
+
+function getFixedPageTemplates( select: any ): FixedPageTemplate[] | undefined {
+	return unlock( select( STORE_NAME ) ).getFixedPageTemplateDefinitions() as
+		| FixedPageTemplate[]
+		| undefined;
 }
 
 function getFixedPageTemplate(
 	select: any,
 	postType: string | undefined,
 	postId: EntityRecordKey | undefined | null
-): FixedPageTemplate | null {
+): FixedPageTemplate | null | undefined {
 	if ( postType !== 'page' || postId === undefined || postId === null ) {
 		return null;
 	}
 
+	const fixedPageTemplates = getFixedPageTemplates( select );
+	if ( fixedPageTemplates === undefined ) {
+		return getFallbackFixedPageTemplate( select, postId );
+	}
+
 	return (
-		getFixedPageTemplates( select ).find(
+		fixedPageTemplates.find(
 			( { id, templateSlug } ) =>
 				!! templateSlug && id.toString() === postId.toString()
 		) ?? null
@@ -206,14 +236,17 @@ function isStaticFrontPage(
 	select: any,
 	postType: string | undefined,
 	postId: EntityRecordKey | undefined | null
-): boolean {
+): boolean | undefined {
+	if ( postType !== 'page' || postId === undefined || postId === null ) {
+		return false;
+	}
+
 	const homepage = unlock( select( STORE_NAME ) ).getHomePage();
+	if ( ! homepage ) {
+		return undefined;
+	}
 	return (
-		postType === 'page' &&
-		homepage?.postType === 'page' &&
-		postId !== undefined &&
-		postId !== null &&
-		postId.toString() === homepage.postId
+		homepage?.postType === 'page' && postId.toString() === homepage.postId
 	);
 }
 
@@ -222,7 +255,11 @@ function getFrontPageTemplateId(
 	postType: string | undefined,
 	postId: EntityRecordKey | undefined | null
 ): EntityRecordKey | null | undefined {
-	if ( ! isStaticFrontPage( select, postType, postId ) ) {
+	const isFrontPage = isStaticFrontPage( select, postType, postId );
+	if ( isFrontPage === undefined ) {
+		return undefined;
+	}
+	if ( ! isFrontPage ) {
 		return null;
 	}
 
@@ -266,6 +303,9 @@ function resolveDefaultTemplateIdForPost(
 	}
 
 	const fixedPageTemplate = getFixedPageTemplate( select, postType, postId );
+	if ( fixedPageTemplate === undefined ) {
+		return undefined;
+	}
 	if ( fixedPageTemplate ) {
 		return select( STORE_NAME ).getDefaultTemplateId( {
 			slug: fixedPageTemplate.templateSlug,
@@ -295,11 +335,25 @@ export const getPostTemplatePolicy = createRegistrySelector(
 				postId
 			);
 			const isFrontPage = isStaticFrontPage( select, postType, postId );
+			const frontPageTemplateId = getFrontPageTemplateId(
+				select,
+				postType,
+				postId
+			);
 
-			return {
+			if (
+				fixedPageTemplate === undefined ||
+				isFrontPage === undefined ||
+				frontPageTemplateId === undefined
+			) {
+				return RESOLVING_POST_TEMPLATE_POLICY;
+			}
+
+			return getPostTemplatePolicyFromFacts( {
 				isFixedTemplatePage: !! fixedPageTemplate,
 				isFrontPage,
-			};
+				hasFrontPageTemplate: !! frontPageTemplateId,
+			} );
 		}
 );
 
@@ -387,6 +441,9 @@ export const getTemplateId = createRegistrySelector(
 			postType,
 			postId
 		);
+		if ( fixedPageTemplate === undefined ) {
+			return;
+		}
 		if ( fixedPageTemplate ) {
 			return resolveDefaultTemplateIdForPost( select, postType, postId );
 		}
@@ -443,6 +500,18 @@ export function getEditorSettings(
 	state: State
 ): Record< string, any > | null {
 	return state.editorSettings;
+}
+
+/**
+ * Returns fixed page template definitions.
+ *
+ * @param state Data state.
+ * @return Fixed page template definitions, or undefined if not loaded.
+ */
+export function getFixedPageTemplateDefinitions(
+	state: State
+): FixedPageTemplate[] | undefined {
+	return state.fixedPageTemplates;
 }
 
 /**

@@ -69,10 +69,10 @@ export function useCanSwitchTemplate(
 				return false;
 			}
 
-			const { isFixedTemplatePage, isFrontPage } = unlock(
-				select( coreStore )
-			).getPostTemplatePolicy( postType, String( postId ) );
-			return ! isFixedTemplatePage && ! isFrontPage;
+			return unlock( select( coreStore ) ).getPostTemplatePolicy(
+				postType,
+				String( postId )
+			).canEditTemplateField;
 		},
 		[ postId, postType ]
 	);

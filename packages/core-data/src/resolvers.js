@@ -1331,6 +1331,7 @@ export const getEditorSettings =
 			path: '/wp-block-editor/v1/settings',
 		} );
 		dispatch.receiveEditorSettings( settings );
+		dispatch.receiveFixedPageTemplates( settings.fixedPageTemplates );
 	};
 
 /**

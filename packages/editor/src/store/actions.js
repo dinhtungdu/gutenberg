@@ -718,19 +718,22 @@ export const resetEditorBlocks =
  */
 export const updateEditorSettings =
 	( settings ) =>
-	( { dispatch, registry, select } ) => {
-		const nextSettings = {
-			...select.getEditorSettings(),
-			...settings,
-		};
+	( { dispatch, registry } ) => {
 		registry.batch( () => {
 			dispatch( {
 				type: 'UPDATE_EDITOR_SETTINGS',
 				settings,
 			} );
-			unlock( registry.dispatch( coreStore ) ).receiveEditorSettings(
-				nextSettings
-			);
+			if (
+				Object.prototype.hasOwnProperty.call(
+					settings,
+					'fixedPageTemplates'
+				)
+			) {
+				unlock(
+					registry.dispatch( coreStore )
+				).receiveFixedPageTemplates( settings.fixedPageTemplates );
+			}
 		} );
 	};
 

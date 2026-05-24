@@ -302,10 +302,13 @@ export const getDefaultRenderingMode = createRegistrySelector(
 
 		const editorSettings = getEditorSettings( state );
 		if ( editorSettings.supportsTemplateMode && postId ) {
-			const { isFixedTemplatePage } = unlock(
+			const { isResolving, canToggleTemplateMode } = unlock(
 				select( coreStore )
 			).getPostTemplatePolicy( postType, postId );
-			if ( isFixedTemplatePage ) {
+			if ( isResolving ) {
+				return undefined;
+			}
+			if ( ! canToggleTemplateMode ) {
 				return 'template-locked';
 			}
 		}

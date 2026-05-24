@@ -65,33 +65,46 @@ const getMethod = ( options ) =>
 
 describe( 'Post actions', () => {
 	describe( 'updateEditorSettings', () => {
-		it( 'syncs merged editor settings to core data', () => {
+		it( 'syncs fixed page templates to core data without leaking editor settings', () => {
 			const registry = createRegistryWithStores();
-			registry.dispatch( editorStore ).updateEditorSettings( {
-				fixedPageTemplates: [
-					{ id: 42, templateSlug: 'archive-product' },
-				],
-			} );
 			registry.dispatch( editorStore ).updateEditorSettings( {
 				disableVisualRevisions: true,
 			} );
 
 			expect(
+				unlock(
+					registry.select( coreStore )
+				).getFixedPageTemplateDefinitions()
+			).toBeUndefined();
+			expect(
+				unlock( registry.select( coreStore ) ).getEditorSettings()
+			).toBeNull();
+
+			registry.dispatch( editorStore ).updateEditorSettings( {
+				fixedPageTemplates: [
+					{ id: 42, templateSlug: 'archive-product' },
+				],
+			} );
+			registry.dispatch( editorStore ).updateEditorSettings( {
+				disableVisualRevisions: false,
+			} );
+
+			expect(
 				registry.select( editorStore ).getEditorSettings()
 			).toMatchObject( {
-				disableVisualRevisions: true,
+				disableVisualRevisions: false,
 				fixedPageTemplates: [
 					{ id: 42, templateSlug: 'archive-product' },
 				],
 			} );
 			expect(
+				unlock(
+					registry.select( coreStore )
+				).getFixedPageTemplateDefinitions()
+			).toEqual( [ { id: 42, templateSlug: 'archive-product' } ] );
+			expect(
 				unlock( registry.select( coreStore ) ).getEditorSettings()
-			).toMatchObject( {
-				disableVisualRevisions: true,
-				fixedPageTemplates: [
-					{ id: 42, templateSlug: 'archive-product' },
-				],
-			} );
+			).toBeNull();
 		} );
 	} );
 
