@@ -23,7 +23,7 @@ const NORMAL_RESOLUTION = { type: 'normal' };
 
 describe( 'fixed page templates', () => {
 	beforeEach( () => {
-		( triggerFetch as jest.Mock ).mockReset();
+		( triggerFetch as unknown as jest.Mock ).mockReset();
 	} );
 
 	function setupFixedPageTemplateRegistry( {
@@ -60,6 +60,7 @@ describe( 'fixed page templates', () => {
 				if ( store === STORE_NAME ) {
 					return selectors;
 				}
+				return undefined;
 			},
 		};
 		( getDefaultTemplateIdForPost as any ).registry = registry;
@@ -71,7 +72,7 @@ describe( 'fixed page templates', () => {
 	it( 'uses editor settings as the fixed page template source', async () => {
 		const registry = createRegistry();
 		registry.register( coreDataStore );
-		( triggerFetch as jest.Mock ).mockResolvedValue( {
+		( triggerFetch as unknown as jest.Mock ).mockResolvedValue( {
 			fixedPageTemplates: [ { id: 42, templateSlug: 'archive-product' } ],
 		} );
 
@@ -114,9 +115,10 @@ describe( 'fixed page templates', () => {
 		} );
 
 		expect(
-			registry
-				.select( coreDataStore )
-				.hasFinishedResolution( 'getEditorSettings', [] )
+			( registry.select( coreDataStore ).hasFinishedResolution as any )(
+				'getEditorSettings',
+				[]
+			)
 		).toBe( true );
 		await expect(
 			unlock(
@@ -137,9 +139,9 @@ describe( 'fixed page templates', () => {
 			type: 'fixed',
 			fixedTemplateSlug: 'archive-product',
 		} );
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			'theme//archive-product'
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( 'theme//archive-product' );
 		expect( getPostTemplateResolution( {} as any, 'post', 42 ) ).toEqual(
 			NORMAL_RESOLUTION
 		);
@@ -151,9 +153,9 @@ describe( 'fixed page templates', () => {
 		expect( getPostTemplateResolution( {} as any, 'page', 42 ) ).toEqual(
 			RESOLVING_RESOLUTION
 		);
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			undefined
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( undefined );
 		expect( getPostTemplateResolution( {} as any, 'post', 42 ) ).toEqual(
 			NORMAL_RESOLUTION
 		);
@@ -168,9 +170,9 @@ describe( 'fixed page templates', () => {
 			type: 'fixed',
 			fixedTemplateSlug: 'home',
 		} );
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			'theme//home'
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( 'theme//home' );
 	} );
 
 	it( 'uses loaded fixed page templates without inferring a posts page fallback', () => {
@@ -209,9 +211,9 @@ describe( 'fixed page templates', () => {
 			type: 'front-page',
 			frontPageTemplateId: 'theme//front-page',
 		} );
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			'theme//front-page'
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( 'theme//front-page' );
 	} );
 
 	it( 'prefers a fixed template over the front page template', () => {
@@ -228,9 +230,9 @@ describe( 'fixed page templates', () => {
 		expect( getTemplateId( {} as any, 'page', 42 ) ).toBe(
 			'theme//archive-product'
 		);
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			'theme//archive-product'
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( 'theme//archive-product' );
 		expect( selectors.getEntityRecords ).not.toHaveBeenCalled();
 	} );
 
@@ -242,9 +244,9 @@ describe( 'fixed page templates', () => {
 		expect( getTemplateId( {} as any, 'page', 42 ) ).toBe(
 			'theme//archive-product'
 		);
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			'theme//archive-product'
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( 'theme//archive-product' );
 	} );
 
 	it( 'uses the assigned template before the normal default template', () => {
@@ -256,8 +258,8 @@ describe( 'fixed page templates', () => {
 		expect( getTemplateId( {} as any, 'page', 42 ) ).toBe(
 			'theme//custom-page'
 		);
-		expect( getDefaultTemplateIdForPost( {} as any, 'page', 42 ) ).toBe(
-			'theme//page'
-		);
+		expect(
+			getDefaultTemplateIdForPost( {} as any, 'page', 42, undefined )
+		).toBe( 'theme//page' );
 	} );
 } );
