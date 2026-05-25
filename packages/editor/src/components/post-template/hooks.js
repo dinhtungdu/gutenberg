@@ -22,11 +22,11 @@ export function useEditedPostContext() {
 	}, [] );
 }
 
-export function usePostTemplatePolicy() {
+export function usePostTemplateResolution() {
 	const { postType, postId } = useEditedPostContext();
 	return useSelect(
 		( select ) =>
-			unlock( select( coreStore ) ).getPostTemplatePolicy(
+			unlock( select( coreStore ) ).getPostTemplateResolution(
 				postType,
 				postId
 			),
@@ -35,15 +35,22 @@ export function usePostTemplatePolicy() {
 }
 
 export function useCanToggleTemplateMode() {
-	return usePostTemplatePolicy().canToggleTemplateMode;
+	const resolution = usePostTemplateResolution();
+	return resolution.type !== 'resolving' && resolution.type !== 'fixed';
 }
 
 export function useAllowSwitchingTemplates() {
-	return usePostTemplatePolicy().canSwitchTemplate;
+	const resolution = usePostTemplateResolution();
+	return (
+		resolution.type !== 'resolving' &&
+		resolution.type !== 'fixed' &&
+		( resolution.type !== 'front-page' || ! resolution.frontPageTemplateId )
+	);
 }
 
 export function useShouldShowPostContentInfo() {
-	return usePostTemplatePolicy().shouldShowPostContentInfo;
+	const resolution = usePostTemplateResolution();
+	return resolution.type !== 'resolving' && resolution.type !== 'fixed';
 }
 
 function useTemplates( postType ) {

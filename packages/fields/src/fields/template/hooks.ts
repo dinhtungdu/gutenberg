@@ -69,10 +69,10 @@ export function useCanSwitchTemplate(
 				return false;
 			}
 
-			return unlock( select( coreStore ) ).getPostTemplatePolicy(
-				postType,
-				String( postId )
-			).canEditTemplateField;
+			const resolution = unlock(
+				select( coreStore )
+			).getPostTemplateResolution( postType, String( postId ) );
+			return resolution.type === 'normal';
 		},
 		[ postId, postType ]
 	);

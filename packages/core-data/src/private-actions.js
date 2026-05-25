@@ -149,18 +149,18 @@ export function receiveEditorSettings( settings ) {
 }
 
 /**
- * Returns an action object used to receive fixed page templates.
+ * Bootstraps editor settings that were already sent by the server.
  *
- * @param {Array} fixedPageTemplates Fixed page templates.
+ * @param {Object} settings Editor settings object.
  *
- * @return {Object} Action object.
+ * @return {Function} Thunk.
  */
-export function receiveFixedPageTemplates( fixedPageTemplates ) {
-	return {
-		type: 'RECEIVE_FIXED_PAGE_TEMPLATES',
-		fixedPageTemplates,
+export const bootstrapEditorSettings =
+	( settings ) =>
+	( { dispatch } ) => {
+		dispatch.receiveEditorSettings( settings );
+		dispatch.finishResolution( 'getEditorSettings', [] );
 	};
-}
 
 /**
  * Returns an action object used to receive editor assets.

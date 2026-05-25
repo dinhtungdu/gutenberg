@@ -1326,7 +1326,6 @@ async function fetchBlockEditorSettings( dispatch ) {
 		path: '/wp-block-editor/v1/settings',
 	} );
 	dispatch.receiveEditorSettings( settings );
-	dispatch.receiveFixedPageTemplates( settings.fixedPageTemplates );
 	return settings;
 }
 
@@ -1334,15 +1333,6 @@ async function fetchBlockEditorSettings( dispatch ) {
  * Requests editor settings from the REST API.
  */
 export const getEditorSettings =
-	() =>
-	async ( { dispatch } ) => {
-		await fetchBlockEditorSettings( dispatch );
-	};
-
-/**
- * Requests fixed page template definitions from the REST API.
- */
-export const getFixedPageTemplateDefinitions =
 	() =>
 	async ( { dispatch } ) => {
 		await fetchBlockEditorSettings( dispatch );

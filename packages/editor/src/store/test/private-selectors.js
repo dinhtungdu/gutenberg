@@ -89,8 +89,7 @@ describe( 'getPostBlocksByName', () => {
 
 describe( 'getDefaultRenderingMode', () => {
 	function setupRegistry( {
-		canToggleTemplateMode = true,
-		isResolvingTemplatePolicy = false,
+		templateResolution = { type: 'normal' },
 		supportsEditor = true,
 		theme = 'twentytwentyfive',
 		renderingModes = null,
@@ -101,10 +100,7 @@ describe( 'getDefaultRenderingMode', () => {
 			} ),
 			getCurrentTheme: () => ( { stylesheet: theme } ),
 			hasFinishedResolution: () => true,
-			getPostTemplatePolicy: () => ( {
-				isResolving: isResolvingTemplatePolicy,
-				canToggleTemplateMode,
-			} ),
+			getPostTemplateResolution: () => templateResolution,
 		};
 		lock( coreSelectors, coreSelectors );
 		getDefaultRenderingMode.registry = {
@@ -124,7 +120,7 @@ describe( 'getDefaultRenderingMode', () => {
 	describe( 'editor.default-mode post type support', () => {
 		it( 'uses template-locked for pages that cannot toggle template mode', () => {
 			setupRegistry( {
-				canToggleTemplateMode: false,
+				templateResolution: { type: 'fixed' },
 				renderingModes: {
 					twentytwentyfive: { page: 'post-only' },
 				},
@@ -143,7 +139,7 @@ describe( 'getDefaultRenderingMode', () => {
 
 		it( 'waits while template policy is resolving', () => {
 			setupRegistry( {
-				isResolvingTemplatePolicy: true,
+				templateResolution: { type: 'resolving' },
 			} );
 			const state = {
 				editorSettings: {

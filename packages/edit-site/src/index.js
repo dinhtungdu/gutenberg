@@ -90,9 +90,7 @@ export function initializeEditor( id, settings ) {
 
 	dispatch( editSiteStore ).updateSettings( settings );
 	dispatch( editorStore ).updateEditorSettings( settings );
-	unlock( dispatch( coreDataStore ) ).receiveFixedPageTemplates(
-		settings.fixedPageTemplates
-	);
+	unlock( dispatch( coreDataStore ) ).bootstrapEditorSettings( settings );
 
 	// Prevent the default browser action for files dropped outside of dropzones.
 	window.addEventListener( 'dragover', ( e ) => e.preventDefault(), false );

@@ -47,9 +47,9 @@ export function QuickEditModal( {
 			}
 
 			const args = [ 'postType', postType, postId[ 0 ] ];
-			const { canEditTemplateField } = unlock(
+			const templateResolution = unlock(
 				select( coreDataStore )
-			).getPostTemplatePolicy( postType, postId[ 0 ] );
+			).getPostTemplateResolution( postType, postId[ 0 ] );
 
 			return {
 				record: getEditedEntityRecord( ...args ),
@@ -57,7 +57,7 @@ export function QuickEditModal( {
 					'getEditedEntityRecord',
 					args
 				),
-				canSwitchTemplate: canEditTemplateField,
+				canSwitchTemplate: templateResolution.type === 'normal',
 			};
 		},
 		[ postType, postId, isBulk ]

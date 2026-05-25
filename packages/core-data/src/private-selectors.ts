@@ -155,59 +155,25 @@ interface FixedPageTemplate {
 	templateSlug: string;
 }
 
-interface PostTemplatePolicy {
-	isResolving: boolean;
-	canToggleTemplateMode: boolean;
-	canSwitchTemplate: boolean;
-	canEditTemplateField: boolean;
-	shouldShowPostContentInfo: boolean;
-}
+type PostTemplateResolution =
+	| { type: 'resolving' }
+	| { type: 'fixed'; fixedTemplateSlug: string }
+	| { type: 'front-page'; frontPageTemplateId: EntityRecordKey | null }
+	| { type: 'normal' };
 
-const RESOLVING_POST_TEMPLATE_POLICY: PostTemplatePolicy = {
-	isResolving: true,
-	canToggleTemplateMode: false,
-	canSwitchTemplate: false,
-	canEditTemplateField: false,
-	shouldShowPostContentInfo: false,
+const RESOLVING_POST_TEMPLATE_RESOLUTION: PostTemplateResolution = {
+	type: 'resolving',
 };
 
-function getPostTemplatePolicyFromFacts( {
-	isFixedTemplatePage,
-	isFrontPage,
-	hasFrontPageTemplate,
-}: {
-	isFixedTemplatePage: boolean;
-	isFrontPage: boolean;
-	hasFrontPageTemplate: boolean;
-} ): PostTemplatePolicy {
-	const canSwitchTemplate = ! isFixedTemplatePage && ! hasFrontPageTemplate;
-	return {
-		isResolving: false,
-		canToggleTemplateMode: ! isFixedTemplatePage,
-		canSwitchTemplate,
-		canEditTemplateField: ! isFixedTemplatePage && ! isFrontPage,
-		shouldShowPostContentInfo: ! isFixedTemplatePage,
-	};
-}
-
-function getFallbackFixedPageTemplate(
-	select: any,
-	postId: EntityRecordKey
-): FixedPageTemplate | undefined {
-	if ( ! unlock( select( STORE_NAME ) ).getHomePage() ) {
+function getFixedPageTemplates( select: any ): FixedPageTemplate[] | undefined {
+	const editorSettings = unlock(
+		select( STORE_NAME )
+	).getEditorSettings() as Record< string, any > | null | undefined;
+	if ( ! editorSettings ) {
 		return undefined;
 	}
 
-	const postsPageId = unlock( select( STORE_NAME ) ).getPostsPageId();
-	return postsPageId && postsPageId === postId.toString()
-		? { id: postsPageId, templateSlug: 'home' }
-		: undefined;
-}
-
-function getFixedPageTemplates( select: any ): FixedPageTemplate[] | undefined {
-	return unlock( select( STORE_NAME ) ).getFixedPageTemplateDefinitions() as
-		| FixedPageTemplate[]
-		| undefined;
+	return ( editorSettings.fixedPageTemplates ?? [] ) as FixedPageTemplate[];
 }
 
 function getFixedPageTemplate(
@@ -221,7 +187,7 @@ function getFixedPageTemplate(
 
 	const fixedPageTemplates = getFixedPageTemplates( select );
 	if ( fixedPageTemplates === undefined ) {
-		return getFallbackFixedPageTemplate( select, postId );
+		return undefined;
 	}
 
 	return (
@@ -292,20 +258,32 @@ function getTemplateSlugToCheck(
 	return postType === 'page' ? 'page' : `single-${ postType }`;
 }
 
-function resolveDefaultTemplateIdForPost(
+function getPostTemplateResolutionFromSelect(
 	select: any,
-	postType: string,
-	postId: EntityRecordKey,
-	slug?: string
-): EntityRecordKey | undefined {
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): PostTemplateResolution {
+	if ( ! postType || postId === undefined || postId === null ) {
+		return { type: 'normal' };
+	}
+
 	const fixedPageTemplate = getFixedPageTemplate( select, postType, postId );
 	if ( fixedPageTemplate === undefined ) {
-		return undefined;
+		return RESOLVING_POST_TEMPLATE_RESOLUTION;
 	}
 	if ( fixedPageTemplate ) {
-		return select( STORE_NAME ).getDefaultTemplateId( {
-			slug: fixedPageTemplate.templateSlug,
-		} );
+		return {
+			type: 'fixed',
+			fixedTemplateSlug: fixedPageTemplate.templateSlug,
+		};
+	}
+
+	const isFrontPage = isStaticFrontPage( select, postType, postId );
+	if ( isFrontPage === undefined ) {
+		return RESOLVING_POST_TEMPLATE_RESOLUTION;
+	}
+	if ( ! isFrontPage ) {
+		return { type: 'normal' };
 	}
 
 	const frontPageTemplateId = getFrontPageTemplateId(
@@ -313,8 +291,32 @@ function resolveDefaultTemplateIdForPost(
 		postType,
 		postId
 	);
-	if ( frontPageTemplateId || frontPageTemplateId === undefined ) {
-		return frontPageTemplateId;
+	if ( frontPageTemplateId === undefined ) {
+		return RESOLVING_POST_TEMPLATE_RESOLUTION;
+	}
+
+	return {
+		type: 'front-page',
+		frontPageTemplateId,
+	};
+}
+
+function getDefaultTemplateIdForResolution(
+	select: any,
+	postType: string,
+	resolution: PostTemplateResolution,
+	slug?: string
+): EntityRecordKey | undefined {
+	if ( resolution.type === 'resolving' ) {
+		return undefined;
+	}
+	if ( resolution.type === 'fixed' ) {
+		return select( STORE_NAME ).getDefaultTemplateId( {
+			slug: resolution.fixedTemplateSlug,
+		} );
+	}
+	if ( resolution.type === 'front-page' && resolution.frontPageTemplateId ) {
+		return resolution.frontPageTemplateId;
 	}
 
 	return select( STORE_NAME ).getDefaultTemplateId( {
@@ -322,52 +324,10 @@ function resolveDefaultTemplateIdForPost(
 	} );
 }
 
-export const getPostTemplatePolicy = createRegistrySelector(
-	( select ) =>
-		( _state, postType, postId ): PostTemplatePolicy => {
-			const fixedPageTemplate = getFixedPageTemplate(
-				select,
-				postType,
-				postId
-			);
-			if ( fixedPageTemplate === undefined ) {
-				return RESOLVING_POST_TEMPLATE_POLICY;
-			}
-			if ( fixedPageTemplate ) {
-				return getPostTemplatePolicyFromFacts( {
-					isFixedTemplatePage: true,
-					isFrontPage: false,
-					hasFrontPageTemplate: false,
-				} );
-			}
-
-			const isFrontPage = isStaticFrontPage( select, postType, postId );
-			if ( isFrontPage === undefined ) {
-				return RESOLVING_POST_TEMPLATE_POLICY;
-			}
-			if ( ! isFrontPage ) {
-				return getPostTemplatePolicyFromFacts( {
-					isFixedTemplatePage: false,
-					isFrontPage: false,
-					hasFrontPageTemplate: false,
-				} );
-			}
-
-			const frontPageTemplateId = getFrontPageTemplateId(
-				select,
-				postType,
-				postId
-			);
-			if ( frontPageTemplateId === undefined ) {
-				return RESOLVING_POST_TEMPLATE_POLICY;
-			}
-
-			return getPostTemplatePolicyFromFacts( {
-				isFixedTemplatePage: false,
-				isFrontPage: true,
-				hasFrontPageTemplate: !! frontPageTemplateId,
-			} );
-		}
+export const getPostTemplateResolution = createRegistrySelector(
+	( select ) => ( _state, postType, postId ) => {
+		return getPostTemplateResolutionFromSelect( select, postType, postId );
+	}
 );
 
 export const getDefaultTemplateIdForPost = createRegistrySelector(
@@ -376,10 +336,10 @@ export const getDefaultTemplateIdForPost = createRegistrySelector(
 			return undefined;
 		}
 
-		return resolveDefaultTemplateIdForPost(
+		return getDefaultTemplateIdForResolution(
 			select,
 			postType,
-			postId,
+			getPostTemplateResolutionFromSelect( select, postType, postId ),
 			slug
 		);
 	}
@@ -445,28 +405,26 @@ export const getPostsPageId = createRegistrySelector( ( select ) => () => {
 
 export const getTemplateId = createRegistrySelector(
 	( select ) => ( state, postType, postId ) => {
-		const fixedPageTemplate = getFixedPageTemplate(
+		const resolution = getPostTemplateResolutionFromSelect(
 			select,
 			postType,
 			postId
 		);
-		if ( fixedPageTemplate === undefined ) {
+		if ( resolution.type === 'resolving' ) {
 			return;
 		}
-		if ( fixedPageTemplate ) {
-			return resolveDefaultTemplateIdForPost( select, postType, postId );
+		if ( resolution.type === 'fixed' ) {
+			return getDefaultTemplateIdForResolution(
+				select,
+				postType,
+				resolution
+			);
 		}
-
-		const frontPageTemplateId = getFrontPageTemplateId(
-			select,
-			postType,
-			postId
-		);
-		if ( frontPageTemplateId ) {
-			return frontPageTemplateId;
-		}
-		if ( frontPageTemplateId === undefined ) {
-			return;
+		if (
+			resolution.type === 'front-page' &&
+			resolution.frontPageTemplateId
+		) {
+			return resolution.frontPageTemplateId;
 		}
 
 		const editedEntity = select( STORE_NAME ).getEditedEntityRecord(
@@ -490,10 +448,10 @@ export const getTemplateId = createRegistrySelector(
 			}
 		}
 
-		return resolveDefaultTemplateIdForPost(
+		return getDefaultTemplateIdForResolution(
 			select,
 			postType,
-			postId,
+			resolution,
 			editedEntity.slug
 		);
 	}
@@ -520,7 +478,9 @@ export function getEditorSettings(
 export function getFixedPageTemplateDefinitions(
 	state: State
 ): FixedPageTemplate[] | undefined {
-	return state.fixedPageTemplates;
+	return state.editorSettings
+		? state.editorSettings.fixedPageTemplates ?? []
+		: undefined;
 }
 
 /**

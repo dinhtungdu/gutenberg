@@ -633,21 +633,12 @@ export function registeredPostMeta( state = {}, action ) {
 }
 
 /**
- * Reducer managing editor settings.
+ * Normalizes fixed page template definitions from editor settings.
  *
- * @param {Object} state  Current state.
- * @param {Object} action Action object.
+ * @param {Array} templates Fixed page template definitions.
  *
- * @return {Object} Updated state.
+ * @return {Array} Normalized fixed page template definitions.
  */
-export function editorSettings( state = null, action ) {
-	switch ( action.type ) {
-		case 'RECEIVE_EDITOR_SETTINGS':
-			return action.settings;
-	}
-	return state;
-}
-
 function normalizeFixedPageTemplates( templates ) {
 	if ( ! Array.isArray( templates ) ) {
 		return [];
@@ -677,18 +668,35 @@ function normalizeFixedPageTemplates( templates ) {
 	}, [] );
 }
 
+function normalizeEditorSettings( settings ) {
+	if ( ! settings || typeof settings !== 'object' ) {
+		return settings;
+	}
+
+	if ( ! Object.hasOwn( settings, 'fixedPageTemplates' ) ) {
+		return settings;
+	}
+
+	return {
+		...settings,
+		fixedPageTemplates: normalizeFixedPageTemplates(
+			settings.fixedPageTemplates
+		),
+	};
+}
+
 /**
- * Reducer managing fixed page templates.
+ * Reducer managing editor settings.
  *
- * @param {Array|undefined} state  Current state.
- * @param {Object}          action Action object.
+ * @param {Object} state  Current state.
+ * @param {Object} action Action object.
  *
- * @return {Array|undefined} Updated state.
+ * @return {Object} Updated state.
  */
-export function fixedPageTemplates( state = undefined, action ) {
+export function editorSettings( state = null, action ) {
 	switch ( action.type ) {
-		case 'RECEIVE_FIXED_PAGE_TEMPLATES':
-			return normalizeFixedPageTemplates( action.fixedPageTemplates );
+		case 'RECEIVE_EDITOR_SETTINGS':
+			return normalizeEditorSettings( action.settings );
 	}
 	return state;
 }
@@ -806,7 +814,6 @@ export default combineReducers( {
 	defaultTemplates,
 	registeredPostMeta,
 	editorSettings,
-	fixedPageTemplates,
 	editorAssets,
 	syncConnectionStatuses,
 	collaborationSupported,

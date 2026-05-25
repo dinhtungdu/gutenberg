@@ -12,7 +12,7 @@ import {
 	userPermissions,
 	autosaves,
 	currentUser,
-	fixedPageTemplates,
+	editorSettings,
 } from '../reducer';
 
 describe( 'entities', () => {
@@ -533,37 +533,43 @@ describe( 'currentUser', () => {
 	} );
 } );
 
-describe( 'fixedPageTemplates', () => {
-	it( 'is unresolved before fixed page templates are received', () => {
-		expect( fixedPageTemplates( undefined, {} ) ).toBeUndefined();
+describe( 'editorSettings', () => {
+	it( 'is unresolved before editor settings are received', () => {
+		expect( editorSettings( undefined, {} ) ).toBeNull();
 	} );
 
-	it( 'normalizes received fixed page templates', () => {
+	it( 'normalizes fixed page templates in received editor settings', () => {
 		expect(
-			fixedPageTemplates( undefined, {
-				type: 'RECEIVE_FIXED_PAGE_TEMPLATES',
-				fixedPageTemplates: [
-					{ id: 42, templateSlug: 'archive-product' },
-					{ id: '43', templateSlug: ' home ' },
-					{ id: 42, templateSlug: 'ignored-duplicate' },
-					{ id: 44 },
-					{ id: 'not-a-page', templateSlug: 'missing-id' },
-					{ templateSlug: 'missing-id' },
-					null,
-				],
+			editorSettings( undefined, {
+				type: 'RECEIVE_EDITOR_SETTINGS',
+				settings: {
+					disableVisualRevisions: true,
+					fixedPageTemplates: [
+						{ id: 42, templateSlug: 'archive-product' },
+						{ id: '43', templateSlug: ' home ' },
+						{ id: 42, templateSlug: 'ignored-duplicate' },
+						{ id: 44 },
+						{ id: 'not-a-page', templateSlug: 'missing-id' },
+						{ templateSlug: 'missing-id' },
+						null,
+					],
+				},
 			} )
-		).toEqual( [
-			{ id: 42, templateSlug: 'archive-product' },
-			{ id: 43, templateSlug: 'home' },
-		] );
+		).toEqual( {
+			disableVisualRevisions: true,
+			fixedPageTemplates: [
+				{ id: 42, templateSlug: 'archive-product' },
+				{ id: 43, templateSlug: 'home' },
+			],
+		} );
 	} );
 
 	it( 'treats invalid fixed page templates as loaded empty settings', () => {
 		expect(
-			fixedPageTemplates( undefined, {
-				type: 'RECEIVE_FIXED_PAGE_TEMPLATES',
-				fixedPageTemplates: null,
+			editorSettings( undefined, {
+				type: 'RECEIVE_EDITOR_SETTINGS',
+				settings: { fixedPageTemplates: null },
 			} )
-		).toEqual( [] );
+		).toEqual( { fixedPageTemplates: [] } );
 	} );
 } );
