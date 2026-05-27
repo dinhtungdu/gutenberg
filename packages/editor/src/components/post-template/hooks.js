@@ -10,6 +10,7 @@ import { __, sprintf } from '@wordpress/i18n';
  * Internal dependencies
  */
 import { store as editorStore } from '../../store';
+import { unlock } from '../../lock-unlock';
 
 export function useEditedPostContext() {
 	return useSelect( ( select ) => {
@@ -20,36 +21,36 @@ export function useEditedPostContext() {
 		};
 	}, [] );
 }
-export function useAllowSwitchingTemplates() {
+
+export function usePostTemplateResolution() {
 	const { postType, postId } = useEditedPostContext();
 	return useSelect(
-		( select ) => {
-			const { canUser, getEntityRecord, getEntityRecords } =
-				select( coreStore );
-			const siteSettings = canUser( 'read', {
-				kind: 'root',
-				name: 'site',
-			} )
-				? getEntityRecord( 'root', 'site' )
-				: undefined;
-
-			const isPostsPage = +postId === siteSettings?.page_for_posts;
-			const isFrontPage =
-				postType === 'page' && +postId === siteSettings?.page_on_front;
-			// If current page is set front page or posts page, we also need
-			// to check if the current theme has a template for it. If not
-			const templates = isFrontPage
-				? getEntityRecords( 'postType', 'wp_template', {
-						per_page: -1,
-				  } )
-				: [];
-			const hasFrontPage =
-				isFrontPage &&
-				!! templates?.some( ( { slug } ) => slug === 'front-page' );
-			return ! isPostsPage && ! hasFrontPage;
-		},
+		( select ) =>
+			unlock( select( coreStore ) ).getPostTemplateResolution(
+				postType,
+				postId
+			),
 		[ postId, postType ]
 	);
+}
+
+export function useCanToggleTemplateMode() {
+	const resolution = usePostTemplateResolution();
+	return resolution.type !== 'resolving' && resolution.type !== 'fixed';
+}
+
+export function useAllowSwitchingTemplates() {
+	const resolution = usePostTemplateResolution();
+	return (
+		resolution.type !== 'resolving' &&
+		resolution.type !== 'fixed' &&
+		( resolution.type !== 'front-page' || ! resolution.frontPageTemplateId )
+	);
+}
+
+export function useShouldShowPostContentInfo() {
+	const resolution = usePostTemplateResolution();
+	return resolution.type !== 'resolving' && resolution.type !== 'fixed';
 }
 
 function useTemplates( postType ) {
@@ -72,7 +73,7 @@ export function useAvailableTemplates() {
 	const allowSwitchingTemplate = useAllowSwitchingTemplates();
 	const templates = useTemplates( postType );
 	// Add the default template to the available ones. We don't care about
-	// possible assignment to postspage/homepage because it's guarded by
+	// possible assignment to fixed template pages/homepage because it's guarded by
 	// `allowSwitchingTemplate` above.
 	const defaultTemplate = useSelect(
 		( select ) => {

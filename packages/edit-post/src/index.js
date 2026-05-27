@@ -156,6 +156,10 @@ export function initializeEditor(
 	window.addEventListener( 'dragover', ( e ) => e.preventDefault(), false );
 	window.addEventListener( 'drop', ( e ) => e.preventDefault(), false );
 
+	// Make settings available synchronously to selectors used during the first render.
+	dispatch( editorStore ).updateEditorSettings( settings );
+	unlock( dispatch( coreDataStore ) ).bootstrapEditorSettings( settings );
+
 	// Drive the resolvers whose data `createPreloadingMiddleware`
 	// already has cached so every metadata entry they touch is
 	// `finished` by the time React mounts — no `setTimeout(0)`

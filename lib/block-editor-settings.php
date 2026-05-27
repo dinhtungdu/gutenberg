@@ -6,6 +6,33 @@
  */
 
 /**
+ * Returns pages that always use a specific block template.
+ *
+ * @return array Fixed page template definitions.
+ */
+function gutenberg_get_fixed_page_templates() {
+	$registry      = new Gutenberg_Fixed_Page_Template_Registry();
+	$posts_page_id = (int) get_option( 'page_for_posts' );
+	if ( 'page' === get_option( 'show_on_front' ) && $posts_page_id > 0 ) {
+		$registry->register( $posts_page_id, 'home' );
+	}
+
+	/**
+	 * Fires when fixed page templates should be registered.
+	 *
+	 * These pages do not render their own post content on the front end, so the
+	 * editor treats their template as fixed.
+	 *
+	 * @since 23.3.0
+	 *
+	 * @param Gutenberg_Fixed_Page_Template_Registry $registry Fixed page template registry.
+	 */
+	do_action( 'block_editor_register_fixed_page_templates', $registry );
+
+	return $registry->get_registered();
+}
+
+/**
  * Replaces core 'styles' and '__experimentalFeatures' block editor settings from
  * wordpress-develop/block-editor.php with the Gutenberg versions. Much of the
  * code is copied from get_block_editor_settings() in that file.
@@ -120,6 +147,8 @@ function gutenberg_get_block_editor_settings( $settings ) {
 	}
 
 	$settings['canEditCSS'] = current_user_can( 'edit_css' );
+
+	$settings['fixedPageTemplates'] = gutenberg_get_fixed_page_templates();
 
 	return $settings;
 }

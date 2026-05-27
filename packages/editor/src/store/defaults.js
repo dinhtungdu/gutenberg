@@ -21,6 +21,7 @@ import { SETTINGS_DEFAULTS } from '@wordpress/block-editor';
  * @property {Array?}        allowedMimeTypes      List of allowed mime types and file extensions
  * @property {number}        maxUploadFileSize     Maximum upload file size
  * @property {boolean}       supportsLayout        Whether the editor supports layouts.
+ * @property {Array?}        fixedPageTemplates    Pages that always use a specific block template.
  */
 export const EDITOR_SETTINGS_DEFAULTS = {
 	...SETTINGS_DEFAULTS,

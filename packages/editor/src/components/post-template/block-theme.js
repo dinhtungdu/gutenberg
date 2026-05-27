@@ -24,6 +24,7 @@ import SwapTemplateButton from './swap-template-button';
 import ResetDefaultTemplate from './reset-default-template';
 import { unlock } from '../../lock-unlock';
 import CreateNewTemplate from './create-new-template';
+import { useCanToggleTemplateMode } from './hooks';
 
 export default function BlockThemeControl() {
 	const {
@@ -54,6 +55,7 @@ export default function BlockThemeControl() {
 		};
 	}, [] );
 
+	const canToggleTemplateMode = useCanToggleTemplateMode();
 	const { get: getPreference } = useSelect( preferencesStore );
 
 	const { editedRecord: template, hasResolved } = useEntityRecord(
@@ -191,22 +193,29 @@ export default function BlockThemeControl() {
 							<ResetDefaultTemplate onClick={ onClose } />
 							{ canCreateTemplate && <CreateNewTemplate /> }
 						</MenuGroup>
-						<MenuGroup>
-							<MenuItem
-								icon={ ! isTemplateHidden ? check : undefined }
-								isSelected={ ! isTemplateHidden }
-								role="menuitemcheckbox"
-								onClick={ () => {
-									const newRenderingMode = isTemplateHidden
-										? 'template-locked'
-										: 'post-only';
-									setRenderingMode( newRenderingMode );
-									setDefaultRenderingMode( newRenderingMode );
-								} }
-							>
-								{ __( 'Show template' ) }
-							</MenuItem>
-						</MenuGroup>
+						{ canToggleTemplateMode && (
+							<MenuGroup>
+								<MenuItem
+									icon={
+										! isTemplateHidden ? check : undefined
+									}
+									isSelected={ ! isTemplateHidden }
+									role="menuitemcheckbox"
+									onClick={ () => {
+										const newRenderingMode =
+											isTemplateHidden
+												? 'template-locked'
+												: 'post-only';
+										setRenderingMode( newRenderingMode );
+										setDefaultRenderingMode(
+											newRenderingMode
+										);
+									} }
+								>
+									{ __( 'Show template' ) }
+								</MenuItem>
+							</MenuGroup>
+						) }
 					</>
 				) }
 			</DropdownMenu>

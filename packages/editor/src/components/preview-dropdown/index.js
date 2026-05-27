@@ -28,6 +28,7 @@ import { VisuallyHidden } from '@wordpress/ui';
  */
 import { store as editorStore } from '../../store';
 import PostPreviewButton from '../post-preview-button';
+import { useCanToggleTemplateMode } from '../post-template/hooks';
 import { unlock } from '../../lock-unlock';
 
 export default function PreviewDropdown( { forceIsAutosaveable, disabled } ) {
@@ -59,6 +60,7 @@ export default function PreviewDropdown( { forceIsAutosaveable, disabled } ) {
 			templateId: getCurrentTemplateId(),
 		};
 	}, [] );
+	const canToggleTemplateMode = useCanToggleTemplateMode();
 	const { setDeviceType, setRenderingMode, setDefaultRenderingMode } = unlock(
 		useDispatch( editorStore )
 	);
@@ -160,25 +162,32 @@ export default function PreviewDropdown( { forceIsAutosaveable, disabled } ) {
 							</MenuItem>
 						</MenuGroup>
 					) }
-					{ ! isTemplate && !! templateId && (
-						<MenuGroup>
-							<MenuItem
-								icon={ ! isTemplateHidden ? check : undefined }
-								isSelected={ ! isTemplateHidden }
-								role="menuitemcheckbox"
-								onClick={ () => {
-									const newRenderingMode = isTemplateHidden
-										? 'template-locked'
-										: 'post-only';
-									setRenderingMode( newRenderingMode );
-									setDefaultRenderingMode( newRenderingMode );
-									resetZoomLevel();
-								} }
-							>
-								{ __( 'Show template' ) }
-							</MenuItem>
-						</MenuGroup>
-					) }
+					{ ! isTemplate &&
+						!! templateId &&
+						canToggleTemplateMode && (
+							<MenuGroup>
+								<MenuItem
+									icon={
+										! isTemplateHidden ? check : undefined
+									}
+									isSelected={ ! isTemplateHidden }
+									role="menuitemcheckbox"
+									onClick={ () => {
+										const newRenderingMode =
+											isTemplateHidden
+												? 'template-locked'
+												: 'post-only';
+										setRenderingMode( newRenderingMode );
+										setDefaultRenderingMode(
+											newRenderingMode
+										);
+										resetZoomLevel();
+									} }
+								>
+									{ __( 'Show template' ) }
+								</MenuItem>
+							</MenuGroup>
+						) }
 					{ isViewable && (
 						<MenuGroup>
 							<PostPreviewButton

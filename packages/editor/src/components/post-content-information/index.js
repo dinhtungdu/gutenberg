@@ -6,12 +6,12 @@ import { useSelect } from '@wordpress/data';
 import { __, _x, _n, sprintf } from '@wordpress/i18n';
 import { count as wordCount } from '@wordpress/wordcount';
 import { useMemo } from '@wordpress/element';
-import { store as coreStore } from '@wordpress/core-data';
 
 /**
  * Internal dependencies
  */
 import { store as editorStore } from '../../store';
+import { useShouldShowPostContentInfo } from '../post-template/hooks';
 import {
 	TEMPLATE_POST_TYPE,
 	TEMPLATE_PART_POST_TYPE,
@@ -22,27 +22,21 @@ const AVERAGE_READING_RATE = 189;
 
 // This component renders the wordcount and reading time for the post.
 export default function PostContentInformation() {
-	const postContent = useSelect( ( select ) => {
-		const { getEditedPostAttribute, getCurrentPostType, getCurrentPostId } =
-			select( editorStore );
-		const { canUser } = select( coreStore );
-		const { getEntityRecord } = select( coreStore );
-		const siteSettings = canUser( 'read', {
-			kind: 'root',
-			name: 'site',
-		} )
-			? getEntityRecord( 'root', 'site' )
-			: undefined;
-		const postType = getCurrentPostType();
-		const _id = getCurrentPostId();
-		const isPostsPage = +_id === siteSettings?.page_for_posts;
-		const showPostContentInfo =
-			! isPostsPage &&
-			! [ TEMPLATE_POST_TYPE, TEMPLATE_PART_POST_TYPE ].includes(
-				postType
-			);
-		return showPostContentInfo && getEditedPostAttribute( 'content' );
-	}, [] );
+	const shouldShowPostContentInfo = useShouldShowPostContentInfo();
+	const postContent = useSelect(
+		( select ) => {
+			const { getEditedPostAttribute, getCurrentPostType } =
+				select( editorStore );
+			const postType = getCurrentPostType();
+			const showPostContentInfo =
+				shouldShowPostContentInfo &&
+				! [ TEMPLATE_POST_TYPE, TEMPLATE_PART_POST_TYPE ].includes(
+					postType
+				);
+			return showPostContentInfo && getEditedPostAttribute( 'content' );
+		},
+		[ shouldShowPostContentInfo ]
+	);
 	return <PostContentInformationUI postContent={ postContent } />;
 }
 

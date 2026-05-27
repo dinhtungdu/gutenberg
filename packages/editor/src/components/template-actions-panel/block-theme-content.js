@@ -28,7 +28,10 @@ import { Tooltip } from '@wordpress/ui';
 import { store as editorStore } from '../../store';
 import CreateNewTemplateModal from '../post-template/create-new-template-modal';
 import { SwapTemplateModal } from '../post-template/swap-template-button';
-import { useAvailableTemplates } from '../post-template/hooks';
+import {
+	useAllowSwitchingTemplates,
+	useAvailableTemplates,
+} from '../post-template/hooks';
 
 export default function TemplateActionsPanelContent() {
 	const templateId = useSelect(
@@ -38,6 +41,7 @@ export default function TemplateActionsPanelContent() {
 	const [ isCreateModalOpen, setIsCreateModalOpen ] = useState( false );
 	const [ isSwapModalOpen, setIsSwapModalOpen ] = useState( false );
 
+	const allowSwitchingTemplate = useAllowSwitchingTemplates();
 	const availableTemplates = useAvailableTemplates();
 	const hasSwapTargets = !! availableTemplates?.length;
 
@@ -174,7 +178,7 @@ export default function TemplateActionsPanelContent() {
 								{ __( 'Edit' ) }
 							</Button>
 						) }
-						{ canCreateTemplate && (
+						{ canCreateTemplate && allowSwitchingTemplate && (
 							<Button
 								className="editor-template-actions-panel__action"
 								__next40pxDefaultSize

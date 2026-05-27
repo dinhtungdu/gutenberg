@@ -155,7 +155,7 @@ function PostTemplateDropdownContent( { onClose } ) {
 			/>
 			{ ! allowSwitchingTemplate ? (
 				<Notice status="warning" isDismissible={ false }>
-					{ __( 'The posts page template cannot be changed.' ) }
+					{ __( "This page's template cannot be changed." ) }
 				</Notice>
 			) : (
 				<SelectControl

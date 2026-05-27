@@ -12,6 +12,7 @@ import {
 	userPermissions,
 	autosaves,
 	currentUser,
+	editorSettings,
 } from '../reducer';
 
 describe( 'entities', () => {
@@ -529,5 +530,46 @@ describe( 'currentUser', () => {
 		);
 
 		expect( state ).toEqual( currentUserData );
+	} );
+} );
+
+describe( 'editorSettings', () => {
+	it( 'is unresolved before editor settings are received', () => {
+		expect( editorSettings( undefined, {} ) ).toBeNull();
+	} );
+
+	it( 'normalizes fixed page templates in received editor settings', () => {
+		expect(
+			editorSettings( undefined, {
+				type: 'RECEIVE_EDITOR_SETTINGS',
+				settings: {
+					disableVisualRevisions: true,
+					fixedPageTemplates: [
+						{ id: 42, templateSlug: 'archive-product' },
+						{ id: '43', templateSlug: ' home ' },
+						{ id: 42, templateSlug: 'ignored-duplicate' },
+						{ id: 44 },
+						{ id: 'not-a-page', templateSlug: 'missing-id' },
+						{ templateSlug: 'missing-id' },
+						null,
+					],
+				},
+			} )
+		).toEqual( {
+			disableVisualRevisions: true,
+			fixedPageTemplates: [
+				{ id: 42, templateSlug: 'archive-product' },
+				{ id: 43, templateSlug: 'home' },
+			],
+		} );
+	} );
+
+	it( 'treats invalid fixed page templates as loaded empty settings', () => {
+		expect(
+			editorSettings( undefined, {
+				type: 'RECEIVE_EDITOR_SETTINGS',
+				settings: { fixedPageTemplates: null },
+			} )
+		).toEqual( { fixedPageTemplates: [] } );
 	} );
 } );

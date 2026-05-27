@@ -10,7 +10,11 @@ import {
 import { dispatch } from '@wordpress/data';
 import deprecated from '@wordpress/deprecated';
 import { createRoot, StrictMode } from '@wordpress/element';
-import { privateApis as editorPrivateApis } from '@wordpress/editor';
+import {
+	privateApis as editorPrivateApis,
+	store as editorStore,
+} from '@wordpress/editor';
+import { store as coreDataStore } from '@wordpress/core-data';
 import { store as preferencesStore } from '@wordpress/preferences';
 import {
 	registerLegacyWidgetBlock,
@@ -85,6 +89,8 @@ export function initializeEditor( id, settings ) {
 	}
 
 	dispatch( editSiteStore ).updateSettings( settings );
+	dispatch( editorStore ).updateEditorSettings( settings );
+	unlock( dispatch( coreDataStore ) ).bootstrapEditorSettings( settings );
 
 	// Prevent the default browser action for files dropped outside of dropzones.
 	window.addEventListener( 'dragover', ( e ) => e.preventDefault(), false );

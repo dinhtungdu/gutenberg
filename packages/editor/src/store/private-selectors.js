@@ -275,13 +275,14 @@ export const getPostBlocksByName = createRegistrySelector( ( select ) =>
 /**
  * Returns the default rendering mode for a post type by user preference or post type configuration.
  *
- * @param {Object} state    Global application state.
- * @param {string} postType The post type.
+ * @param {Object}        state    Global application state.
+ * @param {string}        postType The post type.
+ * @param {number|string} postId   The post ID.
  *
  * @return {string} The default rendering mode. Returns `undefined` while resolving value.
  */
 export const getDefaultRenderingMode = createRegistrySelector(
-	( select ) => ( state, postType ) => {
+	( select ) => ( state, postType, postId ) => {
 		const { getPostType, getCurrentTheme, hasFinishedResolution } =
 			select( coreStore );
 
@@ -297,6 +298,19 @@ export const getDefaultRenderingMode = createRegistrySelector(
 			! hasFinishedResolution( 'getCurrentTheme' )
 		) {
 			return undefined;
+		}
+
+		const editorSettings = getEditorSettings( state );
+		if ( editorSettings.supportsTemplateMode && postId ) {
+			const templateResolution = unlock(
+				select( coreStore )
+			).getPostTemplateResolution( postType, postId );
+			if ( templateResolution.type === 'resolving' ) {
+				return undefined;
+			}
+			if ( templateResolution.type === 'fixed' ) {
+				return 'template-locked';
+			}
 		}
 
 		const theme = currentTheme?.stylesheet;
@@ -321,8 +335,7 @@ export const getDefaultRenderingMode = createRegistrySelector(
 			return postTypeDefaultMode;
 		}
 
-		const settingsDefaultMode =
-			getEditorSettings( state ).defaultRenderingMode;
+		const settingsDefaultMode = editorSettings.defaultRenderingMode;
 
 		if ( RENDERING_MODES.includes( settingsDefaultMode ) ) {
 			return settingsDefaultMode;

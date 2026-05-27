@@ -1321,16 +1321,21 @@ export const getEntitiesConfig =
 		}
 	};
 
+async function fetchBlockEditorSettings( dispatch ) {
+	const settings = await apiFetch( {
+		path: '/wp-block-editor/v1/settings',
+	} );
+	dispatch.receiveEditorSettings( settings );
+	return settings;
+}
+
 /**
  * Requests editor settings from the REST API.
  */
 export const getEditorSettings =
 	() =>
 	async ( { dispatch } ) => {
-		const settings = await apiFetch( {
-			path: '/wp-block-editor/v1/settings',
-		} );
-		dispatch.receiveEditorSettings( settings );
+		await fetchBlockEditorSettings( dispatch );
 	};
 
 /**

@@ -145,6 +145,25 @@ if ( ! class_exists( 'WP_REST_Block_Editor_Settings_Controller' ) ) {
 						'context'     => array( 'default' ),
 					),
 
+					'fixedPageTemplates'               => array(
+						'description' => __( 'Pages that always use a specific block template.', 'gutenberg' ),
+						'type'        => 'array',
+						'context'     => array( 'default' ),
+						'items'       => array(
+							'type'       => 'object',
+							'properties' => array(
+								'id'           => array(
+									'description' => __( 'Page ID.', 'gutenberg' ),
+									'type'        => 'integer',
+								),
+								'templateSlug' => array(
+									'description' => __( 'Template slug.', 'gutenberg' ),
+									'type'        => 'string',
+								),
+							),
+						),
+					),
+
 					'supportsLayout'                   => array(
 						'description' => __( 'Enable/disable layouts support in container blocks.', 'gutenberg' ),
 						'type'        => 'boolean',

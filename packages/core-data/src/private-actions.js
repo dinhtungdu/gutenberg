@@ -149,6 +149,20 @@ export function receiveEditorSettings( settings ) {
 }
 
 /**
+ * Bootstraps editor settings that were already sent by the server.
+ *
+ * @param {Object} settings Editor settings object.
+ *
+ * @return {Function} Thunk.
+ */
+export const bootstrapEditorSettings =
+	( settings ) =>
+	( { dispatch } ) => {
+		dispatch.receiveEditorSettings( settings );
+		dispatch.finishResolution( 'getEditorSettings', [] );
+	};
+
+/**
  * Returns an action object used to receive editor assets.
  *
  * @param {Object} assets Editor assets object.

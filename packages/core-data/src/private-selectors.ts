@@ -150,6 +150,201 @@ interface SiteData {
 	page_for_posts?: string | number;
 }
 
+interface FixedPageTemplate {
+	id: EntityRecordKey;
+	templateSlug: string;
+}
+
+type PostTemplateResolution =
+	| { type: 'resolving' }
+	| { type: 'fixed'; fixedTemplateSlug: string }
+	| { type: 'front-page'; frontPageTemplateId: EntityRecordKey | null }
+	| { type: 'normal' };
+
+const RESOLVING_POST_TEMPLATE_RESOLUTION: PostTemplateResolution = {
+	type: 'resolving',
+};
+
+function getFixedPageTemplates( select: any ): FixedPageTemplate[] | undefined {
+	const editorSettings = unlock(
+		select( STORE_NAME )
+	).getEditorSettings() as Record< string, any > | null | undefined;
+	if ( ! editorSettings ) {
+		return undefined;
+	}
+
+	return ( editorSettings.fixedPageTemplates ?? [] ) as FixedPageTemplate[];
+}
+
+function getFixedPageTemplate(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): FixedPageTemplate | null | undefined {
+	if ( postType !== 'page' || postId === undefined || postId === null ) {
+		return null;
+	}
+
+	const fixedPageTemplates = getFixedPageTemplates( select );
+	if ( fixedPageTemplates === undefined ) {
+		return undefined;
+	}
+
+	return (
+		fixedPageTemplates.find(
+			( { id, templateSlug } ) =>
+				!! templateSlug && id.toString() === postId.toString()
+		) ?? null
+	);
+}
+
+function isStaticFrontPage(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): boolean | undefined {
+	if ( postType !== 'page' || postId === undefined || postId === null ) {
+		return false;
+	}
+
+	const homepage = unlock( select( STORE_NAME ) ).getHomePage();
+	if ( ! homepage ) {
+		return undefined;
+	}
+	return (
+		homepage?.postType === 'page' && postId.toString() === homepage.postId
+	);
+}
+
+function getFrontPageTemplateId(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): EntityRecordKey | null | undefined {
+	const isFrontPage = isStaticFrontPage( select, postType, postId );
+	if ( isFrontPage === undefined ) {
+		return undefined;
+	}
+	if ( ! isFrontPage ) {
+		return null;
+	}
+
+	// The /lookup endpoint cannot currently handle a lookup when a page is set
+	// as the front page. In that case, check if there is a front page template,
+	// otherwise fall back to the page template.
+	const templates = select( STORE_NAME ).getEntityRecords(
+		'postType',
+		'wp_template',
+		{
+			per_page: -1,
+		}
+	);
+	if ( ! templates ) {
+		return undefined;
+	}
+
+	return templates.find( ( { slug } ) => slug === 'front-page' )?.id ?? null;
+}
+
+function getTemplateSlugToCheck(
+	postType: string,
+	slug: string | undefined
+): string {
+	if ( slug ) {
+		return postType === 'page'
+			? `${ postType }-${ slug }`
+			: `single-${ postType }-${ slug }`;
+	}
+	return postType === 'page' ? 'page' : `single-${ postType }`;
+}
+
+function getPostTemplateResolutionFromSelect(
+	select: any,
+	postType: string | undefined,
+	postId: EntityRecordKey | undefined | null
+): PostTemplateResolution {
+	if ( ! postType || postId === undefined || postId === null ) {
+		return { type: 'normal' };
+	}
+
+	const fixedPageTemplate = getFixedPageTemplate( select, postType, postId );
+	if ( fixedPageTemplate === undefined ) {
+		return RESOLVING_POST_TEMPLATE_RESOLUTION;
+	}
+	if ( fixedPageTemplate ) {
+		return {
+			type: 'fixed',
+			fixedTemplateSlug: fixedPageTemplate.templateSlug,
+		};
+	}
+
+	const isFrontPage = isStaticFrontPage( select, postType, postId );
+	if ( isFrontPage === undefined ) {
+		return RESOLVING_POST_TEMPLATE_RESOLUTION;
+	}
+	if ( ! isFrontPage ) {
+		return { type: 'normal' };
+	}
+
+	const frontPageTemplateId = getFrontPageTemplateId(
+		select,
+		postType,
+		postId
+	);
+	if ( frontPageTemplateId === undefined ) {
+		return RESOLVING_POST_TEMPLATE_RESOLUTION;
+	}
+
+	return {
+		type: 'front-page',
+		frontPageTemplateId,
+	};
+}
+
+function getDefaultTemplateIdForResolution(
+	select: any,
+	postType: string,
+	resolution: PostTemplateResolution,
+	slug?: string
+): EntityRecordKey | undefined {
+	if ( resolution.type === 'resolving' ) {
+		return undefined;
+	}
+	if ( resolution.type === 'fixed' ) {
+		return select( STORE_NAME ).getDefaultTemplateId( {
+			slug: resolution.fixedTemplateSlug,
+		} );
+	}
+	if ( resolution.type === 'front-page' && resolution.frontPageTemplateId ) {
+		return resolution.frontPageTemplateId;
+	}
+
+	return select( STORE_NAME ).getDefaultTemplateId( {
+		slug: getTemplateSlugToCheck( postType, slug ),
+	} );
+}
+
+export const getPostTemplateResolution = createRegistrySelector(
+	( select ) => ( _state, postType, postId ) => {
+		return getPostTemplateResolutionFromSelect( select, postType, postId );
+	}
+);
+
+export const getDefaultTemplateIdForPost = createRegistrySelector(
+	( select ) => ( _state, postType, postId, slug ) => {
+		if ( ! postType || postId === undefined || postId === null ) {
+			return undefined;
+		}
+
+		return getDefaultTemplateIdForResolution(
+			select,
+			postType,
+			getPostTemplateResolutionFromSelect( select, postType, postId ),
+			slug
+		);
+	}
+);
+
 export const getHomePage = createRegistrySelector( ( select ) =>
 	createSelector(
 		() => {
@@ -210,40 +405,26 @@ export const getPostsPageId = createRegistrySelector( ( select ) => () => {
 
 export const getTemplateId = createRegistrySelector(
 	( select ) => ( state, postType, postId ) => {
-		const homepage = unlock( select( STORE_NAME ) ).getHomePage();
-
-		if ( ! homepage ) {
+		const resolution = getPostTemplateResolutionFromSelect(
+			select,
+			postType,
+			postId
+		);
+		if ( resolution.type === 'resolving' ) {
 			return;
 		}
-
-		// For the front page, we always use the front page template if existing.
-		if (
-			postType === 'page' &&
-			postType === homepage?.postType &&
-			postId.toString() === homepage?.postId
-		) {
-			// The /lookup endpoint cannot currently handle a lookup
-			// when a page is set as the front page, so specifically in
-			// that case, we want to check if there is a front page
-			// template, and instead of falling back to the home
-			// template, we want to fall back to the page template.
-			const templates = select( STORE_NAME ).getEntityRecords(
-				'postType',
-				'wp_template',
-				{
-					per_page: -1,
-				}
+		if ( resolution.type === 'fixed' ) {
+			return getDefaultTemplateIdForResolution(
+				select,
+				postType,
+				resolution
 			);
-			if ( ! templates ) {
-				return;
-			}
-			const id = templates.find( ( { slug } ) => slug === 'front-page' )
-				?.id;
-			if ( id ) {
-				return id;
-			}
-			// If no front page template is found, continue with the
-			// logic below (fetching the page template).
+		}
+		if (
+			resolution.type === 'front-page' &&
+			resolution.frontPageTemplateId
+		) {
+			return resolution.frontPageTemplateId;
 		}
 
 		const editedEntity = select( STORE_NAME ).getEditedEntityRecord(
@@ -253,13 +434,6 @@ export const getTemplateId = createRegistrySelector(
 		);
 		if ( ! editedEntity ) {
 			return;
-		}
-		const postsPageId = unlock( select( STORE_NAME ) ).getPostsPageId();
-		// Check if the current page is the posts page.
-		if ( postType === 'page' && postsPageId === postId.toString() ) {
-			return select( STORE_NAME ).getDefaultTemplateId( {
-				slug: 'home',
-			} );
 		}
 		// First see if the post/page has an assigned template and fetch it.
 		const currentTemplateSlug = editedEntity.template;
@@ -273,23 +447,13 @@ export const getTemplateId = createRegistrySelector(
 				return currentTemplate.id;
 			}
 		}
-		// If no template is assigned, use the default template.
-		let slugToCheck;
-		// In `draft` status we might not have a slug available, so we use the `single`
-		// post type templates slug(ex page, single-post, single-product etc..).
-		// Pages do not need the `single` prefix in the slug to be prioritized
-		// through template hierarchy.
-		if ( editedEntity.slug ) {
-			slugToCheck =
-				postType === 'page'
-					? `${ postType }-${ editedEntity.slug }`
-					: `single-${ postType }-${ editedEntity.slug }`;
-		} else {
-			slugToCheck = postType === 'page' ? 'page' : `single-${ postType }`;
-		}
-		return select( STORE_NAME ).getDefaultTemplateId( {
-			slug: slugToCheck,
-		} );
+
+		return getDefaultTemplateIdForResolution(
+			select,
+			postType,
+			resolution,
+			editedEntity.slug
+		);
 	}
 );
 
@@ -303,6 +467,20 @@ export function getEditorSettings(
 	state: State
 ): Record< string, any > | null {
 	return state.editorSettings;
+}
+
+/**
+ * Returns fixed page template definitions.
+ *
+ * @param state Data state.
+ * @return Fixed page template definitions, or undefined if not loaded.
+ */
+export function getFixedPageTemplateDefinitions(
+	state: State
+): FixedPageTemplate[] | undefined {
+	return state.editorSettings
+		? state.editorSettings.fixedPageTemplates ?? []
+		: undefined;
 }
 
 /**

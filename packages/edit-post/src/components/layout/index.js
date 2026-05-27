@@ -427,7 +427,10 @@ function Layout( {
 				currentPostType === 'wp_block' &&
 				! onNavigateToPreviousEntityRecord;
 			const _templateId = getTemplateId( currentPostType, currentPostId );
-			const defaultMode = getDefaultRenderingMode( currentPostType );
+			const defaultMode = getDefaultRenderingMode(
+				currentPostType,
+				currentPostId
+			);
 
 			return {
 				mode: getEditorMode(),

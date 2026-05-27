@@ -633,6 +633,59 @@ export function registeredPostMeta( state = {}, action ) {
 }
 
 /**
+ * Normalizes fixed page template definitions from editor settings.
+ *
+ * @param {Array} templates Fixed page template definitions.
+ *
+ * @return {Array} Normalized fixed page template definitions.
+ */
+function normalizeFixedPageTemplates( templates ) {
+	if ( ! Array.isArray( templates ) ) {
+		return [];
+	}
+
+	const seenPageIds = new Set();
+	return templates.reduce( ( normalized, fixedPageTemplate ) => {
+		const pageId = Number( fixedPageTemplate?.id );
+		const rawTemplateSlug = fixedPageTemplate?.templateSlug;
+		const templateSlug =
+			typeof rawTemplateSlug === 'string' ? rawTemplateSlug.trim() : '';
+		if ( ! Number.isInteger( pageId ) || pageId <= 0 || ! templateSlug ) {
+			return normalized;
+		}
+
+		const normalizedPageId = pageId.toString();
+		if ( seenPageIds.has( normalizedPageId ) ) {
+			return normalized;
+		}
+		seenPageIds.add( normalizedPageId );
+
+		normalized.push( {
+			id: pageId,
+			templateSlug,
+		} );
+		return normalized;
+	}, [] );
+}
+
+function normalizeEditorSettings( settings ) {
+	if ( ! settings || typeof settings !== 'object' ) {
+		return settings;
+	}
+
+	if ( ! Object.hasOwn( settings, 'fixedPageTemplates' ) ) {
+		return settings;
+	}
+
+	return {
+		...settings,
+		fixedPageTemplates: normalizeFixedPageTemplates(
+			settings.fixedPageTemplates
+		),
+	};
+}
+
+/**
  * Reducer managing editor settings.
  *
  * @param {Object} state  Current state.
@@ -643,7 +696,7 @@ export function registeredPostMeta( state = {}, action ) {
 export function editorSettings( state = null, action ) {
 	switch ( action.type ) {
 		case 'RECEIVE_EDITOR_SETTINGS':
-			return action.settings;
+			return normalizeEditorSettings( action.settings );
 	}
 	return state;
 }
